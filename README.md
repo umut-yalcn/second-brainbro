@@ -70,15 +70,16 @@ failure it removes only its validated staging directory and never rolls back unr
 
 ```text
 <VaultPath>/
+├── CLAUDE.md                 # companion persona, conventions, and security boundaries
 ├── Open-SecondBrain.ps1      # validated, opt-in local launcher
-├── 📥 000-Inbox/Dump/        # raw capture, processed on request
-├── 🎯 100-Command-Center/    # Dashboard
-├── 🏰 300-Projects/          # one folder per project
-├── 🧠 500-Knowledge/         # knowledge by domain
-├── 🛠️ 600-Arsenal/           # tools, contacts, resources
-├── 🔮 850-Companion/         # persistent Markdown memory
-├── 📦 900-Archive/
-├── 📋 Templates/
+├── 📥 000-Inbox/             # Inbox.md + Dump/ for raw capture, processed on request
+├── 🎯 100-Command-Center/    # Dashboard.md
+├── 🏰 300-Projects/          # Projects.md; one folder per project
+├── 🧠 500-Knowledge/         # Knowledge.md; knowledge by domain
+├── 🛠️ 600-Arsenal/           # Arsenal.md; tools, contacts, resources
+├── 🔮 850-Companion/         # Core.md, Last-Session.md, Threads.md, Journal.md
+├── 📦 900-Archive/           # Archive.md
+├── 📋 Templates/             # Note.md
 └── .claude/                  # default permissions, opt-in hooks, manifest, and local state
 ```
 

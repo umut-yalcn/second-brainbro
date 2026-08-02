@@ -16,9 +16,13 @@ git status --short
 git rev-parse HEAD
 Get-Command node, obsidian, claude -ErrorAction SilentlyContinue |
   Select-Object Name, CommandType, Source
-Get-ItemProperty -LiteralPath 'Registry::HKEY_CURRENT_USER\Software\Classes\obsidian\shell\open\command' `
+Get-ItemProperty -LiteralPath 'Registry::HKEY_CLASSES_ROOT\obsidian\shell\open\command' `
   -ErrorAction SilentlyContinue
 ```
+
+The protocol query reads `HKEY_CLASSES_ROOT`, the same merged view `Open-SecondBrain.ps1` validates.
+It resolves both per-user and machine-wide Obsidian registrations, so a per-hive query can report
+"not registered" for an installation the launcher accepts.
 
 Redact the Windows username and unrelated absolute paths before sharing output. Do not paste tokens,
 settings files, note content, or hook state into an issue.

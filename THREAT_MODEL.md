@@ -1,7 +1,10 @@
 # Threat model
 
 Status: Phase 0–6 hardening baseline
-Baseline reviewed before these changes: `45b2a16131544761d29be3a1f6b0f626d4df2941`
+
+This review supersedes a pre-hardening development snapshot that exists only in the maintainer's
+private archive and is intentionally not published, so no public commit identifies it. The public
+root commit and the upstream baseline `3961c0c` are recorded in [PROVENANCE.md](PROVENANCE.md).
 
 This document defines what second-brainbro protects, what it deliberately does not promise, and
 which deployment is currently supported. It must be updated whenever a new executable hook,
