@@ -9,7 +9,7 @@
  * Security properties:
  *  - Vault root is derived from this file's real location (symlinks resolved).
  *  - No shell and no platform-specific commands: reviewed Node.js 22/24 LTS APIs.
- *  - Hook/settings bytes must match the packaged SHA-256 manifest.
+ *  - Packaged hook bytes must match the SHA-256 manifest.
  *  - Raw session IDs never become paths or logs; SHA-256 keys isolate sessions.
  *  - Prompt counts use exclusive marker files, avoiding lost-update races.
  *  - Session and reflection state have age/count bounds and safe-name checks.
@@ -50,9 +50,14 @@ const LOG_MAX_BYTES = 256 * 1024;
 const SESSION_KEY_RE = /^[a-f0-9]{64}$/;
 const PROMPT_MARKER_RE = /^prompt-\d{13}-[a-f0-9]{16}\.marker$/;
 const REFLECTION_FILE_RE = /^reflection-\d{13}-[a-f0-9]{64}-[a-f0-9]{16}\.json$/;
+// Only packaged, non-user-editable bytes are pinned. settings.local.json is a
+// file the user is expected to edit (permission rules, disabling hooks), so
+// hashing it turned every legitimate edit into a permanent drift warning and
+// made the documented hook-disable procedure fail verify-integrity. setup.ps1
+// still verifies settings.local.json against the reviewed mode example at
+// install time; see THREAT_MODEL.md for the residual risk this leaves.
 const MANIFEST_FILES = new Set([
   '.claude/hooks/hooks.mjs',
-  '.claude/settings.local.json',
 ]);
 const COMMAND_EVENTS = new Map([
   ['session-start', 'SessionStart'],
