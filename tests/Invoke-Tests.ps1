@@ -302,12 +302,10 @@ try {
         $manifest = [IO.File]::ReadAllText($manifestPath, [Text.Encoding]::UTF8) | ConvertFrom-Json
         Assert-Equal ([int]$manifest.schemaVersion) 1 'Unexpected manifest schema'
         Assert-Equal ([string]$manifest.control) 'drift-detection' 'Unexpected manifest control'
+        Assert-True ($manifest.files.PSObject.Properties.Name -notcontains '.claude/settings.local.json') `
+            'User-editable local settings must not be pinned by the drift manifest'
         foreach ($entry in $manifest.files.PSObject.Properties) {
-            $source = if ($entry.Name -eq '.claude/settings.local.json') {
-                Join-Path $templateRoot '.claude\settings.hooks.example.json'
-            } else {
-                Join-Path $templateRoot ($entry.Name.Replace('/', '\'))
-            }
+            $source = Join-Path $templateRoot ($entry.Name.Replace('/', '\'))
             Assert-Equal (Get-FileSha256 $source) ([string]$entry.Value) ('Manifest drift: ' + $entry.Name)
         }
     }
@@ -586,7 +584,18 @@ try {
             Assert-True (-not $stateText.Contains($sessionId)) 'Raw session ID leaked into state'
         }
 
+        # A user editing their own permission rules must not trip drift detection.
         [IO.File]::AppendAllText((Join-Path $target '.claude\settings.local.json'), ' ', [Text.Encoding]::UTF8)
+        $settingsEditId = 'SETTINGS-EDIT-SESSION-ID'
+        $settingsEditJson = @{ session_id = $settingsEditId; hook_event_name = 'SessionStart' } | ConvertTo-Json -Compress
+        $settingsEdit = Invoke-NodeCapture -Arguments @($installedHook, 'session-start') -InputText $settingsEditJson
+        Assert-Equal $settingsEdit.ExitCode 0 'Local settings edit blocked the client session'
+        Assert-True (-not $settingsEdit.Output.Contains('systemMessage')) 'Local settings edit produced a spurious drift warning'
+        Assert-True (Test-Path -LiteralPath (Join-Path $stateRoot (Join-Path 'sessions' (Get-TextSha256 $settingsEditId))) -PathType Container) `
+            'Local settings edit suppressed legitimate session state'
+
+        # Tampering with packaged hook bytes must still fail closed.
+        [IO.File]::AppendAllText($installedHook, "`n", [Text.Encoding]::UTF8)
         $driftId = 'DRIFT-SESSION-ID'
         $driftJson = @{ session_id = $driftId; hook_event_name = 'SessionStart' } | ConvertTo-Json -Compress
         $drift = Invoke-NodeCapture -Arguments @($installedHook, 'session-start') -InputText $driftJson

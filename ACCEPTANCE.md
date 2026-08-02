@@ -112,11 +112,12 @@ only. Require Claude Code `2.1.211+`, then run the installed-vault verifier with
 - `-Claude` displays resolved paths and starts nothing after an incorrect confirmation;
 - exact `CLAUDE` consent starts both applications in the intended vault;
 - SessionStart exposes only bounded, delimited synthetic memory;
-- a local hook/settings byte change produces a visible drift warning and suppresses state mutation;
+- a local `hooks.mjs` byte change produces a visible drift warning and suppresses state mutation;
+- editing `settings.local.json` produces no drift warning and does not suppress state;
 - disabling hooks restores the permission-only settings example, and removing disposable state follows
   `SETUP.md` without affecting Markdown notes.
 
-Restore the reviewed hook/settings bytes before collecting final integrity evidence.
+Restore the reviewed `hooks.mjs` bytes before collecting final integrity evidence.
 
 ## Gate E: fail-closed and recovery observations
 

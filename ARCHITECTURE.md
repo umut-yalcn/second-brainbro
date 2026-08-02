@@ -56,7 +56,7 @@ application start.
 When hooks are enabled, Claude Code invokes Node directly from the gitignored local settings file.
 Each hook call follows this order:
 
-1. verify the packaged hook and active settings hashes;
+1. verify the packaged hook hash (user-owned local settings are intentionally not pinned);
 2. read at most 1 MiB of JSON from stdin;
 3. validate `hook_event_name` and `session_id`;
 4. derive a fixed SHA-256 session key;

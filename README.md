@@ -70,15 +70,16 @@ failure it removes only its validated staging directory and never rolls back unr
 
 ```text
 <VaultPath>/
+├── CLAUDE.md                 # companion persona, conventions, and security boundaries
 ├── Open-SecondBrain.ps1      # validated, opt-in local launcher
-├── 📥 000-Inbox/Dump/        # raw capture, processed on request
-├── 🎯 100-Command-Center/    # Dashboard
-├── 🏰 300-Projects/          # one folder per project
-├── 🧠 500-Knowledge/         # knowledge by domain
-├── 🛠️ 600-Arsenal/           # tools, contacts, resources
-├── 🔮 850-Companion/         # persistent Markdown memory
-├── 📦 900-Archive/
-├── 📋 Templates/
+├── 📥 000-Inbox/             # Inbox.md + Dump/ for raw capture, processed on request
+├── 🎯 100-Command-Center/    # Dashboard.md
+├── 🏰 300-Projects/          # Projects.md; one folder per project
+├── 🧠 500-Knowledge/         # Knowledge.md; knowledge by domain
+├── 🛠️ 600-Arsenal/           # Arsenal.md; tools, contacts, resources
+├── 🔮 850-Companion/         # Core.md, Last-Session.md, Threads.md, Journal.md
+├── 📦 900-Archive/           # Archive.md
+├── 📋 Templates/             # Note.md
 └── .claude/                  # default permissions, opt-in hooks, manifest, and local state
 ```
 
@@ -89,9 +90,11 @@ failure it removes only its validated staging directory and never rolls back unr
 - **Default restrictive permissions** — every installed vault receives gitignored local settings;
   shell tools and built-in reads/edits of sensitive paths are denied with filesystem-root-anchored rules
   even when continuity hooks remain off.
-- **Drift detection** — after activation, hook and settings bytes are compared to the packaged
-  manifest. A mismatch suppresses memory injection and continuity-state changes. Release provenance
-  must be verified separately.
+- **Drift detection** — after activation, the packaged hook bytes are compared to the manifest on
+  every call. A mismatch suppresses memory injection and continuity-state changes. User-owned
+  `settings.local.json` is deliberately not pinned, so editing your own permission rules never raises
+  a warning; the installer verifies that file against the reviewed example instead. Release
+  provenance must be verified separately.
 - **Bounded context** — only selected, size-limited memory sections are injected and they are marked
   as untrusted data.
 - **Session-safe state** — hook input is validated against the expected event, raw Claude session IDs
@@ -143,7 +146,7 @@ community plugins are outside the supported public-source-preview configuration.
 |---|---|---|
 | Source provenance | Clean public root documents the upstream baseline and private development archive; future install pins an immutable reviewed release | No signed hardened release exists yet |
 | Claude permissions / hook activation | Permission-only `settings.local.json` is always installed; hook commands appear only after explicit opt-in | User settings or bypass modes can remove this boundary |
-| Hook drift | Fixed SHA-256 package manifest; mismatch skips memory/continuity-state work | Same-user attacker can replace code and manifest together |
+| Hook drift | Fixed SHA-256 manifest over packaged hook bytes; mismatch skips memory/continuity-state work; the installer separately verifies local settings against the reviewed example | Same-user attacker can replace code and manifest together; user-editable `settings.local.json` is not pinned at runtime by design |
 | Installation | Existing-target refusal, protected private staging ACL, per-target lock, pre-commit verification, atomic directory rename | Version-pinned package installs are external changes and are not rolled back |
 | Personalization | Fixed file allowlist, canonical containment, link rejection, preflight validation | Transaction protects a new install; it is not an updater for existing vaults |
 | Launcher | Vault-relative fixed entry point, local-path and reparse checks, encoded Obsidian URI, encoded literal Claude command, dry-run, explicit Claude consent | Same-user modification and unreviewed source remain outside its protection |
