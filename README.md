@@ -80,8 +80,11 @@ failure it removes only its validated staging directory and never rolls back unr
 ├── 🔮 850-Companion/         # Core.md, Last-Session.md, Threads.md, Journal.md
 ├── 📦 900-Archive/           # Archive.md
 ├── 📋 Templates/             # Note.md
+├── .gitignore                # keeps local settings and hook state out of any Git history
 └── .claude/                  # default permissions, opt-in hooks, manifest, and local state
 ```
+
+Optional `⚔️ 200-Goals/` and `🔐 400-Vault/` folders are created only when `-OptionalArea` requests them.
 
 - **Named companion** — user-selected name and Turkish-first interaction style.
 - **Local Markdown memory** — `Core.md`, `Last-Session.md`, `Threads.md`, and `Journal.md` remain
