@@ -87,11 +87,15 @@ From the installed vault, check packaged integrity without starting Claude:
 node .\.claude\hooks\hooks.mjs verify-integrity
 ```
 
-A nonzero result or a user-visible drift warning means memory injection and continuity-state work are
-suppressed. Do not regenerate hashes around unexplained changes. Restore the hook and settings from the
-same reviewed source, or disable hooks by replacing `.claude/settings.local.json` with the reviewed
-`.claude/settings.permissions.example.json` while Claude Code is closed. Do not delete local settings,
-because that also removes the restrictive permission rules. Review `/hooks` after restarting Claude Code.
+A nonzero result or a user-visible drift warning means the packaged hook bytes no longer match the
+manifest, and memory injection and continuity-state work are suppressed. Do not regenerate hashes
+around unexplained changes; restore `.claude/hooks/hooks.mjs` from the same reviewed source.
+
+Editing `.claude/settings.local.json` does not raise a drift warning. That file is yours to change,
+so disabling hooks by replacing it with the reviewed
+`.claude/settings.permissions.example.json` while Claude Code is closed leaves `verify-integrity`
+passing. Do not delete local settings, because that also removes the restrictive permission rules.
+Review `/hooks` after restarting Claude Code.
 
 Operational state under `.claude/hooks/.state/` is disposable. Close every Claude process using the
 vault before deleting that exact state directory. This resets session counters and pending reflection

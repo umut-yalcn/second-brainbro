@@ -55,7 +55,7 @@ Claude service. “Files are stored locally” must never be described as “the
 
 | Threat | Current control | Residual risk |
 |---|---|---|
-| Malicious or replaced project hook | Hooks are opt-in local settings; packaged bytes are checked against `hook-manifest.json`; mismatch skips memory/continuity-state work. | A same-user attacker can replace hook, settings, and manifest together. Signed releases are still required. |
+| Malicious or replaced project hook | Hooks are opt-in local settings; packaged hook bytes are checked against `hook-manifest.json` on every call; mismatch skips memory/continuity-state work. `setup.ps1` separately verifies `settings.local.json` against the reviewed mode example before commit. | A same-user attacker can replace hook and manifest together. `settings.local.json` is user-editable by design and is not pinned at runtime, so a post-install change to which hook commands run is not detected by drift alone. Signed releases are still required. |
 | Persistent prompt injection through memory | Injected memory is bounded and wrapped as untrusted data; `CLAUDE.md` forbids following instructions found inside memory. | Language-model defences are not absolute. Users must review imported/untrusted content. |
 | Accidental secret disclosure | Every installed vault denies built-in sensitive-path reads/edits with launch-directory-independent rules and denies Bash/PowerShell tools; no project feature asks for an API key. | The user can change/bypass settings or paste secrets into an ordinary note. This is not an OS encryption boundary. |
 | Public Git leak | `settings.local.json` and hook state are ignored; public-release secret scanning is required. | `.gitignore` is not encryption and cannot protect already committed history. |
@@ -64,12 +64,30 @@ Claude service. “Files are stored locally” must never be described as “the
 | Cloud-sync leakage/conflict | OneDrive deployment is unsupported in the public source preview. | Users can still manually place the vault in a synced directory. |
 | Concurrent Claude sessions | Raw IDs are SHA-256-derived; each session has a separate directory; prompts use exclusive markers; closing and reflection claims use exclusive/atomic filesystem operations. | Abrupt process/storage failure can lose a reminder. Same-user tampering remains out of scope. |
 | State exhaustion or stale sessions | Hook input is capped at 1 MiB; prompt markers at 1,000 per session; session directories at 64/seven days; pending reflections at 32/30 days; at most three notices are claimed per start; the 256 KiB operational log keeps at most two best-effort archives. | These are availability/retention limits, not durable audit guarantees. Oldest state may be discarded at the cap. |
-| Launcher command/path injection | Launcher derives its vault from its own directory, requires Obsidian vault initialization, validates a supported signed Obsidian binary and reparse-free ancestors, launches that executable, and passes Claude through an encoded literal command using the correct PowerShell edition. | Obsidian, Claude Code, PowerShell, certificate trust, and same-user file integrity remain external trust boundaries. |
+| Launcher command/path injection | Launcher derives its vault from its own directory, requires Obsidian vault initialization, validates a supported signed Obsidian binary and reparse-free ancestors, launches that executable, and passes Claude through an encoded literal command using the correct PowerShell edition. | Obsidian, Claude Code, PowerShell, certificate trust, and same-user file integrity remain external trust boundaries. The Claude command is resolved from `PATH` and checked for file type and reparse-free ancestry only; it is deliberately not Authenticode-verified (see below). |
 | Accidental networked AI start | Default launch opens Obsidian only; `-Claude` requires a displayed plan and exact interactive confirmation before either process starts. Dry-run starts zero processes. | Once authorized, Claude may send user-approved context to its configured service. |
 | CI workflow or action supply-chain abuse | CI has only `contents: read`, disables persisted checkout credentials, sets timeouts, pins actions to reviewed full commit SHAs, and pins Node.js patch versions. | GitHub-hosted runner images, Node.js distributions, and pinned action implementations remain external trust dependencies and require periodic review. |
 | Untrusted pull-request code in CI | Tests run on `pull_request`, never `pull_request_target`; no repository secrets or write token are exposed. | Test code can affect only its ephemeral runner and public job output within GitHub's runner isolation assumptions. |
 | Stale or misleading operator documentation | Required security, privacy, provenance, architecture, recovery, and setup documents are linked from the README; CI checks local links, parameter coverage, current support policy, and prohibited live-pipe instructions. | Automated checks cannot prove every sentence semantically matches the implementation; reviewers must update prose with behavior changes. |
 | Local account compromise | No claim of protection. | An attacker with the same Windows user permissions can read notes and alter all controls. |
+
+## Why Obsidian and Claude Code are validated differently
+
+The launcher verifies Obsidian's Authenticode signature, publisher, product metadata, and version, but
+resolves Claude Code from `PATH` and checks only that the target is a normal file with no reparse-point
+ancestor. This asymmetry is intentional, not an oversight.
+
+Obsidian ships a single signed desktop executable from a known publisher and known install locations,
+so a strict allowlist costs nothing. Claude Code is commonly installed through npm, which creates
+unsigned `claude.ps1` / `claude.cmd` shims in a user-writable directory such as
+`%APPDATA%\npm`. Requiring a valid signature or a fixed install location would reject the most common
+supported installation rather than add protection.
+
+The residual exposure is bounded by an assumption already stated in this document: writing to those
+locations, or reordering `PATH`, requires control of the same Windows user account, which is out of
+scope. Users who want a stricter boundary should install Claude Code through a reviewed signed channel
+and keep user-writable directories off `PATH`. Revisit this decision if Claude Code gains a signed
+first-party Windows executable as its standard distribution.
 
 ## Security invariants
 
