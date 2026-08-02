@@ -237,6 +237,13 @@ $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('second-brainbro-ci-' + [guid]
 $originalLocalAppData = $env:LOCALAPPDATA
 $originalPath = $env:Path
 
+# The scaffold uses emoji directory names, and git emits them as UTF-8. Without this the
+# inventory is decoded with the console code page, so paths from `git ls-files` fail to
+# resolve on any host whose console is not already UTF-8 - a spurious failure that looks
+# like a missing file. Restored in the finally block.
+$originalOutputEncoding = [Console]::OutputEncoding
+[Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
+
 try {
     $null = [IO.Directory]::CreateDirectory($testRoot)
 
@@ -647,7 +654,9 @@ try {
         $tracked = @(& git -c core.quotePath=false -C $repoRoot ls-files --cached --others --exclude-standard)
         Assert-Equal $LASTEXITCODE 0 'git ls-files failed'
         Assert-True ($tracked.Count -gt 0) 'No tracked files were found'
-        Assert-Equal @($tracked | Where-Object { $_ -like '*/settings.local.json' }).Count 0 'settings.local.json is tracked'
+        # Matched without a leading separator so a repository-root settings.local.json is
+        # caught too; the previous '*/settings.local.json' form only saw nested copies.
+        Assert-Equal @($tracked | Where-Object { $_ -like '*settings.local.json' }).Count 0 'settings.local.json is tracked'
         $strictUtf8 = New-Object Text.UTF8Encoding($false, $true)
         $secretPattern = '(?i)(sk-ant-[A-Za-z0-9_-]{16,}|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)'
         $textExtensions = @('.ps1', '.mjs', '.json', '.md', '.yml', '.yaml', '.gitignore')
@@ -871,6 +880,7 @@ try {
 } finally {
     $env:LOCALAPPDATA = $originalLocalAppData
     $env:Path = $originalPath
+    [Console]::OutputEncoding = $originalOutputEncoding
     if (Test-Path -LiteralPath $testRoot -PathType Container) {
         [IO.Directory]::Delete($testRoot, $true)
     }
