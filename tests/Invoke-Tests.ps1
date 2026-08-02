@@ -237,6 +237,13 @@ $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('second-brainbro-ci-' + [guid]
 $originalLocalAppData = $env:LOCALAPPDATA
 $originalPath = $env:Path
 
+# The scaffold uses emoji directory names, and git emits them as UTF-8. Without this the
+# inventory is decoded with the console code page, so paths from `git ls-files` fail to
+# resolve on any host whose console is not already UTF-8 - a spurious failure that looks
+# like a missing file. Restored in the finally block.
+$originalOutputEncoding = [Console]::OutputEncoding
+[Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
+
 try {
     $null = [IO.Directory]::CreateDirectory($testRoot)
 
@@ -647,7 +654,9 @@ try {
         $tracked = @(& git -c core.quotePath=false -C $repoRoot ls-files --cached --others --exclude-standard)
         Assert-Equal $LASTEXITCODE 0 'git ls-files failed'
         Assert-True ($tracked.Count -gt 0) 'No tracked files were found'
-        Assert-Equal @($tracked | Where-Object { $_ -like '*/settings.local.json' }).Count 0 'settings.local.json is tracked'
+        # Matched without a leading separator so a repository-root settings.local.json is
+        # caught too; the previous '*/settings.local.json' form only saw nested copies.
+        Assert-Equal @($tracked | Where-Object { $_ -like '*settings.local.json' }).Count 0 'settings.local.json is tracked'
         $strictUtf8 = New-Object Text.UTF8Encoding($false, $true)
         $secretPattern = '(?i)(sk-ant-[A-Za-z0-9_-]{16,}|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)'
         $textExtensions = @('.ps1', '.mjs', '.json', '.md', '.yml', '.yaml', '.gitignore')
@@ -761,6 +770,61 @@ try {
         Assert-True (-not ($allDocs -match '(?is)(Invoke-WebRequest|\birm\b|\bcurl\b).*?\|\s*(iex\b|Invoke-Expression\b|powershell\b|pwsh\b|sh\b|bash\b)')) 'Mutable download-and-execute instruction found'
     }
 
+    Test-Case 'README scaffold tree matches the reviewed template' {
+        # The documentation-contract test above checks that specific sentences exist, so it
+        # stayed green while the scaffold tree silently omitted CLAUDE.md, every per-area
+        # index note, and .gitignore. This test derives the expected tree from the template
+        # the installer actually copies, in both directions, so an omitted or invented entry
+        # fails instead of passing quietly.
+        $readme = [IO.File]::ReadAllText((Join-Path $repoRoot 'README.md'), [Text.Encoding]::UTF8)
+        $treeMatch = [regex]::Match($readme, '(?s)```text\r?\n(<VaultPath>/\r?\n.*?)```')
+        Assert-True $treeMatch.Success 'README scaffold tree block is missing'
+
+        # Box-drawing characters are built from code points, never written as literals:
+        # this file is BOM-less UTF-8 and Windows PowerShell 5.1 reads such literals as ANSI.
+        $horizontal = ([string][char]0x2500) * 2
+        $entryPattern = '^(?:' + [regex]::Escape(([string][char]0x251C) + $horizontal) + '|' +
+            [regex]::Escape(([string][char]0x2514) + $horizontal) +
+            ')\s+(?<name>[^#]+?)\s*(?:#\s*(?<comment>.*?))?\s*$'
+
+        $treeLines = @($treeMatch.Groups[1].Value -split "`n")
+        $documented = @()
+        $folderComments = @{}
+        foreach ($line in $treeLines) {
+            $entry = [regex]::Match($line, $entryPattern)
+            if (-not $entry.Success) { continue }
+            $name = $entry.Groups['name'].Value
+            if ($name.EndsWith('/')) {
+                $name = $name.TrimEnd('/')
+                $folderComments[$name] = $entry.Groups['comment'].Value
+            }
+            $documented += $name
+        }
+        Assert-True ($documented.Count -gt 0) 'README scaffold tree lists no entries'
+
+        $installed = @(Get-ChildItem -Force -LiteralPath $templateRoot | ForEach-Object { $_.Name })
+        $omitted = @($installed | Where-Object { $documented -notcontains $_ })
+        Assert-Equal $omitted.Count 0 ('README scaffold tree omits installed entries: ' + ($omitted -join ', '))
+        $invented = @($documented | Where-Object { $installed -notcontains $_ })
+        Assert-Equal $invented.Count 0 ('README scaffold tree lists entries the installer never creates: ' + ($invented -join ', '))
+
+        # A note named in a folder's comment must exist in that folder.
+        foreach ($folder in $folderComments.Keys) {
+            foreach ($note in [regex]::Matches($folderComments[$folder], '\b[A-Za-z][A-Za-z0-9-]*\.md\b')) {
+                Assert-True (Test-Path -LiteralPath (Join-Path (Join-Path $templateRoot $folder) $note.Value) -PathType Leaf) `
+                    ('README names a scaffold note that does not exist: ' + $folder + '\' + $note.Value)
+            }
+        }
+
+        # Optional areas are absent from the template by design, so the tree cannot list
+        # them; the README must still name each one the installer can create.
+        $setupText = [IO.File]::ReadAllText($setupPath, [Text.Encoding]::UTF8)
+        foreach ($area in @('200-Goals', '400-Vault')) {
+            Assert-True ($setupText.Contains($area)) ('Optional area disappeared from the installer: ' + $area)
+            Assert-True ($readme.Contains($area)) ('README does not document optional area: ' + $area)
+        }
+    }
+
     Test-Case 'Clean-machine acceptance verifier contract' {
         $source = [IO.File]::ReadAllText($acceptancePath, [Text.Encoding]::UTF8)
         $setupSource = [IO.File]::ReadAllText($setupPath, [Text.Encoding]::UTF8)
@@ -785,8 +849,17 @@ try {
         $ast = [Management.Automation.Language.Parser]::ParseFile($acceptancePath, [ref]$tokens, [ref]$errors)
         Assert-Equal $errors.Count 0 'Acceptance verifier cannot be parsed'
         $actual = @($ast.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath } | Sort-Object)
-        $expected = @('Mode', 'VaultPath', 'ExpectedCommit', 'Hooks', 'RequireClaude', 'Json') | Sort-Object
+        $expected = @('Mode', 'VaultPath', 'ExpectedCommit', 'ExpectedOrigin', 'Hooks', 'RequireClaude', 'Json') | Sort-Object
         Assert-Equal ($actual -join ',') ($expected -join ',') 'Acceptance verifier parameter contract changed'
+
+        # A pending gate must stay non-passing: it is excluded from Passed and it must
+        # still produce a nonzero exit, otherwise an unreached gate could read as verified.
+        Assert-True ($source.Contains('Pending = $pending.Count')) 'Pending gates are not reported'
+        Assert-True ($source.Contains('$passed = $script:Results.Count - $failures.Count - $pending.Count')) `
+            'Pending gates are counted as passed'
+        Assert-True ($source.Contains('if ($pending.Count -gt 0) { exit 2 }')) 'A pending acceptance run exits successfully'
+        Assert-True ($source.Contains("[regex]::Escape(`$ExpectedOrigin)")) 'Expected origin is not matched as a literal'
+        Assert-True (-not ($source -match "github\\\.com\[:/\]umutyalcin-pen")) 'Acceptance verifier still hardcodes the origin'
     }
 
     Test-Case 'GitHub Actions least-privilege policy' {
@@ -807,6 +880,7 @@ try {
 } finally {
     $env:LOCALAPPDATA = $originalLocalAppData
     $env:Path = $originalPath
+    [Console]::OutputEncoding = $originalOutputEncoding
     if (Test-Path -LiteralPath $testRoot -PathType Container) {
         [IO.Directory]::Delete($testRoot, $true)
     }

@@ -40,8 +40,15 @@ The verifier can emit JSON for redaction and review, but it intentionally does n
   -Json
 ```
 
-Redirect output only to a reviewed evidence location outside the checkout. A JSON `Failed` value
-greater than zero is not an acceptance pass.
+Redirect output only to a reviewed evidence location outside the checkout.
+
+Each gate is reported as `PASS`, `FAIL`, or `PENDING`. `PENDING` means a gate could not be reached
+because a documented later acceptance step has not happened yet; it is never a substitute for a
+passing gate. An acceptance pass requires exit code `0` with both `Failed` and `Pending` equal to
+zero. Exit code `1` reports a failed gate and `2` reports an incomplete run.
+
+Reviewers working from a fork or review mirror must pass `-ExpectedOrigin '<owner>/<repository>'`
+so the origin gate matches their exact remote. Record the value used in the evidence.
 
 ## Gate A: fresh host and reviewed source
 
@@ -92,9 +99,13 @@ Run:
 
 The verifier must prove required files, completed personalization, a protected private ACL, restrictive
 permission-only local settings with no hook commands, and a launcher dry-run that starts no process.
-In Obsidian choose **Open folder as vault** for the exact synthetic target before rerunning the verifier;
-this creates the required `.obsidian` marker and registers the URI handler. Then manually confirm the
-launcher opens the synthetic Dashboard. Do not install community plugins.
+On this first run `launcher.dry-run` is reported `PENDING` because Obsidian has not yet created the
+`.obsidian` marker. That is expected evidence, not a pass and not permission to skip the gate.
+
+In Obsidian choose **Open folder as vault** for the exact synthetic target; this creates the required
+`.obsidian` marker and registers the URI handler. Rerun the verifier and require `launcher.dry-run` to
+report `PASS` with `Pending: 0`. Then manually confirm the launcher opens the synthetic Dashboard.
+Do not install community plugins.
 
 ## Gate D: explicit hook and Claude path
 
@@ -148,8 +159,8 @@ Phase 7 may be marked complete only after a reviewer confirms:
 | Node.js / Obsidian / Claude | Exact observed versions |
 | Automated suite | PowerShell result and pass count |
 | Pre-install verifier | All gates pass |
-| Disabled-vault verifier | All gates pass |
-| Enabled-vault verifier | All gates pass |
+| Disabled-vault verifier | All gates pass; no pending gate remains |
+| Enabled-vault verifier | All gates pass; no pending gate remains |
 | Manual launcher/hook observations | All required observations pass |
 | Fail-closed observations | All required observations pass |
 | Reviewer | Name/handle and review date |
