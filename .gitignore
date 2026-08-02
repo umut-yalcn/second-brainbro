@@ -1,0 +1,13 @@
+# Secrets — never commit (any depth, any vault copy)
+**/settings.local.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.obsidian/workspace*
+.obsidian/cache
+
+# Local hook state
+.claude/hooks/.state/*
+!.claude/hooks/.state/.gitkeep

@@ -1,0 +1,48 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows PowerShell 5.1 / Node 22.23.1
+            shell: powershell
+            node: 22.23.1
+          - name: PowerShell 7 / Node 24.18.0
+            shell: pwsh
+            node: 24.18.0
+    steps:
+      - name: Checkout reviewed source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Select Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Run hardened Windows tests with Windows PowerShell
+        if: matrix.shell == 'powershell'
+        shell: powershell
+        run: .\tests\Invoke-Tests.ps1
+      - name: Run hardened Windows tests with PowerShell 7
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
+        run: .\tests\Invoke-Tests.ps1

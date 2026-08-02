@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "control": "drift-detection",
+  "files": {
+    ".claude/hooks/hooks.mjs": "50957ff8c78adcfff4a3e8df62e724ff484bbab74a74be5c8ef8be3b8d5a4986",
+    ".claude/settings.local.json": "ad03c542546d8b85621d26419dc6b737491f9b311be70fa672f9c2af390f3323"
+  }
+}

@@ -1,0 +1,57 @@
+name: Bug report
+description: Report a reproducible problem using synthetic data only
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include real vault content, credentials, private paths, or unredacted logs. Security-sensitive findings must use private vulnerability reporting described in SECURITY.md.
+  - type: input
+    id: commit
+    attributes:
+      label: Exact commit SHA
+      description: Provide the full 40-character commit tested.
+      placeholder: 0123456789abcdef0123456789abcdef01234567
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Synthetic test environment
+      description: List Windows edition/build, PowerShell, Node.js, Obsidian, Claude Code if used, hook mode, and local NTFS status. Redact the Windows user name.
+      placeholder: Windows 11 build ...; PowerShell ...; Node.js ...; Obsidian ...; Hooks Disabled
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Use a disposable vault and synthetic names/content only.
+      placeholder: |
+        1. Create a new synthetic target...
+        2. Run...
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Redact absolute user paths and all personal or authentication data.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I used only synthetic data and removed credentials, personal notes, private paths, and unredacted logs.
+          required: true
+        - label: This report does not contain security-sensitive exploit details that should be submitted privately.
+          required: true

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Bash",
+      "PowerShell",
+      "Read(//**/🔐 400-Vault/**)",
+      "Read(//**/.env)",
+      "Read(//**/.env.*)",
+      "Read(//**/*.key)",
+      "Read(//**/*.pem)",
+      "Read(//**/*.p12)",
+      "Read(//**/*.pfx)",
+      "Edit(//**/🔐 400-Vault/**)",
+      "Edit(//**/.env)",
+      "Edit(//**/.env.*)",
+      "Edit(//**/*.key)",
+      "Edit(//**/*.pem)",
+      "Edit(//**/*.p12)",
+      "Edit(//**/*.pfx)"
+    ]
+  }
+}

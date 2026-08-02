@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Bash",
+      "PowerShell",
+      "Read(//**/🔐 400-Vault/**)",
+      "Read(//**/.env)",
+      "Read(//**/.env.*)",
+      "Read(//**/*.key)",
+      "Read(//**/*.pem)",
+      "Read(//**/*.p12)",
+      "Read(//**/*.pfx)",
+      "Edit(//**/🔐 400-Vault/**)",
+      "Edit(//**/.env)",
+      "Edit(//**/.env.*)",
+      "Edit(//**/*.key)",
+      "Edit(//**/*.pem)",
+      "Edit(//**/*.p12)",
+      "Edit(//**/*.pfx)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/hooks.mjs", "session-start"],
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/hooks.mjs", "prompt-counter"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/hooks.mjs", "session-end"],
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
