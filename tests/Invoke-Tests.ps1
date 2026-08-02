@@ -785,8 +785,17 @@ try {
         $ast = [Management.Automation.Language.Parser]::ParseFile($acceptancePath, [ref]$tokens, [ref]$errors)
         Assert-Equal $errors.Count 0 'Acceptance verifier cannot be parsed'
         $actual = @($ast.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath } | Sort-Object)
-        $expected = @('Mode', 'VaultPath', 'ExpectedCommit', 'Hooks', 'RequireClaude', 'Json') | Sort-Object
+        $expected = @('Mode', 'VaultPath', 'ExpectedCommit', 'ExpectedOrigin', 'Hooks', 'RequireClaude', 'Json') | Sort-Object
         Assert-Equal ($actual -join ',') ($expected -join ',') 'Acceptance verifier parameter contract changed'
+
+        # A pending gate must stay non-passing: it is excluded from Passed and it must
+        # still produce a nonzero exit, otherwise an unreached gate could read as verified.
+        Assert-True ($source.Contains('Pending = $pending.Count')) 'Pending gates are not reported'
+        Assert-True ($source.Contains('$passed = $script:Results.Count - $failures.Count - $pending.Count')) `
+            'Pending gates are counted as passed'
+        Assert-True ($source.Contains('if ($pending.Count -gt 0) { exit 2 }')) 'A pending acceptance run exits successfully'
+        Assert-True ($source.Contains("[regex]::Escape(`$ExpectedOrigin)")) 'Expected origin is not matched as a literal'
+        Assert-True (-not ($source -match "github\\\.com\[:/\]umutyalcin-pen")) 'Acceptance verifier still hardcodes the origin'
     }
 
     Test-Case 'GitHub Actions least-privilege policy' {

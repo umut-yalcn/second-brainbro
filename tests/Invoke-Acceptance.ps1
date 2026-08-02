@@ -11,6 +11,11 @@ param(
     [ValidatePattern('^[a-f0-9]{40}$')]
     [string]$ExpectedCommit,
 
+    # Forks and review mirrors legitimately use a different origin. The value is an
+    # exact owner/repository slug, never a substring, so a look-alike remote still fails.
+    [ValidatePattern('^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?/[A-Za-z0-9._-]+$')]
+    [string]$ExpectedOrigin = 'umutyalcin-pen/second-brainbro',
+
     [ValidateSet('Disabled', 'Enabled')]
     [string]$Hooks = 'Disabled',
 
@@ -34,13 +39,21 @@ function Add-GateResult {
 }
 
 function Invoke-Gate {
-    param([string]$Id, [scriptblock]$Body)
+    param([string]$Id, [scriptblock]$Body, [scriptblock]$PendingIf)
     try {
         $evidence = @(& $Body) -join '; '
         if ([string]::IsNullOrWhiteSpace($evidence)) { $evidence = 'verified' }
         Add-GateResult -Id $Id -Status 'PASS' -Evidence $evidence
     } catch {
-        Add-GateResult -Id $Id -Status 'FAIL' -Evidence $_.Exception.Message
+        $message = $_.Exception.Message
+        # A gate blocked by a documented later acceptance step is recorded as PENDING,
+        # never as PASS. PENDING keeps the run non-passing; it only separates "this step
+        # has not happened yet" from "this control is broken".
+        if ($PSBoundParameters.ContainsKey('PendingIf') -and (& $PendingIf $message)) {
+            Add-GateResult -Id $Id -Status 'PENDING' -Evidence $message
+            return
+        }
+        Add-GateResult -Id $Id -Status 'FAIL' -Evidence $message
     }
 }
 
@@ -186,8 +199,9 @@ Invoke-Gate 'source.reviewed-commit' {
     $head = Invoke-Git -GitArguments @('rev-parse', 'HEAD')
     if ($head -ne $ExpectedCommit) { throw ('HEAD mismatch: ' + $head) }
     $origin = Invoke-Git -GitArguments @('remote', 'get-url', 'origin')
-    if ($origin -notmatch '(?i)github\.com[:/]umutyalcin-pen/second-brainbro(?:\.git)?$') {
-        throw ('Unexpected origin: ' + $origin)
+    $originPattern = '(?i)github\.com[:/]' + [regex]::Escape($ExpectedOrigin) + '(?:\.git)?$'
+    if ($origin -notmatch $originPattern) {
+        throw ('Unexpected origin: ' + $origin + '; expected ' + $ExpectedOrigin)
     }
     return ('HEAD ' + $head)
 }
@@ -315,22 +329,38 @@ if ($Mode -eq 'PreInstall') {
         $output = @(& $launcher -DryRun -Claude:$RequireClaude.IsPresent *>&1) -join "`n"
         if ($output -notmatch 'Dry-run complete') { throw ('Launcher dry-run marker is absent. ' + $output) }
         return 'validated without starting Obsidian or Claude'
+    } -PendingIf {
+        param([string]$Message)
+        # ACCEPTANCE.md Gate C initializes the Obsidian vault marker after the first
+        # installed-vault run, so an absent .obsidian means this gate has not been
+        # reached yet. Both the launcher's own reason and the missing marker must agree;
+        # any other launcher failure stays FAIL.
+        $Message -match 'not initialized this folder as a vault' -and
+            -not (Test-Path -LiteralPath (Join-Path $target '.obsidian') -PathType Container)
     }
 }
 
 $failures = @($script:Results | Where-Object { $_.Status -eq 'FAIL' })
+$pending = @($script:Results | Where-Object { $_.Status -eq 'PENDING' })
+$passed = $script:Results.Count - $failures.Count - $pending.Count
 if ($Json) {
     [pscustomobject]@{
-        SchemaVersion = 1
+        SchemaVersion = 2
         Mode = $Mode
         ExpectedCommit = $ExpectedCommit
-        Passed = $script:Results.Count - $failures.Count
+        ExpectedOrigin = $ExpectedOrigin
+        Passed = $passed
         Failed = $failures.Count
+        Pending = $pending.Count
         Results = $script:Results.ToArray()
     } | ConvertTo-Json -Depth 5
 } else {
     $script:Results | Format-Table Id, Status, Evidence -AutoSize | Out-String | Write-Host
-    Write-Host ('Passed: ' + ($script:Results.Count - $failures.Count))
+    Write-Host ('Passed: ' + $passed)
     Write-Host ('Failed: ' + $failures.Count)
+    Write-Host ('Pending: ' + $pending.Count)
 }
+# Exit 1 is a defect, exit 2 is an incomplete run. Both are non-passing; only 0 is an
+# acceptance pass, so no caller can read a pending gate as a satisfied one.
 if ($failures.Count -gt 0) { exit 1 }
+if ($pending.Count -gt 0) { exit 2 }
