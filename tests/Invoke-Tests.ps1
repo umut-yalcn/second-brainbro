@@ -761,6 +761,61 @@ try {
         Assert-True (-not ($allDocs -match '(?is)(Invoke-WebRequest|\birm\b|\bcurl\b).*?\|\s*(iex\b|Invoke-Expression\b|powershell\b|pwsh\b|sh\b|bash\b)')) 'Mutable download-and-execute instruction found'
     }
 
+    Test-Case 'README scaffold tree matches the reviewed template' {
+        # The documentation-contract test above checks that specific sentences exist, so it
+        # stayed green while the scaffold tree silently omitted CLAUDE.md, every per-area
+        # index note, and .gitignore. This test derives the expected tree from the template
+        # the installer actually copies, in both directions, so an omitted or invented entry
+        # fails instead of passing quietly.
+        $readme = [IO.File]::ReadAllText((Join-Path $repoRoot 'README.md'), [Text.Encoding]::UTF8)
+        $treeMatch = [regex]::Match($readme, '(?s)```text\r?\n(<VaultPath>/\r?\n.*?)```')
+        Assert-True $treeMatch.Success 'README scaffold tree block is missing'
+
+        # Box-drawing characters are built from code points, never written as literals:
+        # this file is BOM-less UTF-8 and Windows PowerShell 5.1 reads such literals as ANSI.
+        $horizontal = ([string][char]0x2500) * 2
+        $entryPattern = '^(?:' + [regex]::Escape(([string][char]0x251C) + $horizontal) + '|' +
+            [regex]::Escape(([string][char]0x2514) + $horizontal) +
+            ')\s+(?<name>[^#]+?)\s*(?:#\s*(?<comment>.*?))?\s*$'
+
+        $treeLines = @($treeMatch.Groups[1].Value -split "`n")
+        $documented = @()
+        $folderComments = @{}
+        foreach ($line in $treeLines) {
+            $entry = [regex]::Match($line, $entryPattern)
+            if (-not $entry.Success) { continue }
+            $name = $entry.Groups['name'].Value
+            if ($name.EndsWith('/')) {
+                $name = $name.TrimEnd('/')
+                $folderComments[$name] = $entry.Groups['comment'].Value
+            }
+            $documented += $name
+        }
+        Assert-True ($documented.Count -gt 0) 'README scaffold tree lists no entries'
+
+        $installed = @(Get-ChildItem -Force -LiteralPath $templateRoot | ForEach-Object { $_.Name })
+        $omitted = @($installed | Where-Object { $documented -notcontains $_ })
+        Assert-Equal $omitted.Count 0 ('README scaffold tree omits installed entries: ' + ($omitted -join ', '))
+        $invented = @($documented | Where-Object { $installed -notcontains $_ })
+        Assert-Equal $invented.Count 0 ('README scaffold tree lists entries the installer never creates: ' + ($invented -join ', '))
+
+        # A note named in a folder's comment must exist in that folder.
+        foreach ($folder in $folderComments.Keys) {
+            foreach ($note in [regex]::Matches($folderComments[$folder], '\b[A-Za-z][A-Za-z0-9-]*\.md\b')) {
+                Assert-True (Test-Path -LiteralPath (Join-Path (Join-Path $templateRoot $folder) $note.Value) -PathType Leaf) `
+                    ('README names a scaffold note that does not exist: ' + $folder + '\' + $note.Value)
+            }
+        }
+
+        # Optional areas are absent from the template by design, so the tree cannot list
+        # them; the README must still name each one the installer can create.
+        $setupText = [IO.File]::ReadAllText($setupPath, [Text.Encoding]::UTF8)
+        foreach ($area in @('200-Goals', '400-Vault')) {
+            Assert-True ($setupText.Contains($area)) ('Optional area disappeared from the installer: ' + $area)
+            Assert-True ($readme.Contains($area)) ('README does not document optional area: ' + $area)
+        }
+    }
+
     Test-Case 'Clean-machine acceptance verifier contract' {
         $source = [IO.File]::ReadAllText($acceptancePath, [Text.Encoding]::UTF8)
         $setupSource = [IO.File]::ReadAllText($setupPath, [Text.Encoding]::UTF8)
