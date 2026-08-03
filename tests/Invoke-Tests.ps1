@@ -231,6 +231,7 @@ $personalizerPath = Join-Path $repoRoot 'personalize.mjs'
 $hookPath = Join-Path $templateRoot '.claude\hooks\hooks.mjs'
 $workflowPath = Join-Path $repoRoot '.github\workflows\windows-ci.yml'
 $acceptancePath = Join-Path $repoRoot 'tests\Invoke-Acceptance.ps1'
+$phase7Path = Join-Path $repoRoot 'tests\Invoke-Phase7.ps1'
 $script:NodeExecutable = (Get-Command node -CommandType Application | Select-Object -First 1).Path
 if ([string]::IsNullOrWhiteSpace($script:NodeExecutable)) { throw 'Node.js executable is unavailable.' }
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('second-brainbro-ci-' + [guid]::NewGuid().ToString('N'))
@@ -248,7 +249,7 @@ try {
     $null = [IO.Directory]::CreateDirectory($testRoot)
 
     Test-Case 'PowerShell and Node syntax' {
-        foreach ($path in @($setupPath, $launcherPath, $acceptancePath, $PSCommandPath)) {
+        foreach ($path in @($setupPath, $launcherPath, $acceptancePath, $phase7Path, $PSCommandPath)) {
             $errors = $null
             $tokens = $null
             [void][Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
@@ -860,6 +861,64 @@ try {
         Assert-True ($source.Contains('if ($pending.Count -gt 0) { exit 2 }')) 'A pending acceptance run exits successfully'
         Assert-True ($source.Contains("[regex]::Escape(`$ExpectedOrigin)")) 'Expected origin is not matched as a literal'
         Assert-True (-not ($source -match "github\\\.com\[:/\]umutyalcin-pen")) 'Acceptance verifier still hardcodes the origin'
+    }
+
+    Test-Case 'Phase 7 driver never authorizes an installation' {
+        # The driver exists to remove typing, not to remove the human. setup.ps1 asks for an
+        # exact CREATE only so a person reads the printed plan first, so the driver may relay
+        # what the operator types but must never supply the authorizing word itself. The only
+        # confirmations it may generate are the deliberately wrong ones whose refusal is the
+        # property Gate E measures.
+        $source = [IO.File]::ReadAllText($phase7Path, [Text.Encoding]::UTF8)
+
+        $errors = $null
+        $tokens = $null
+        $ast = [Management.Automation.Language.Parser]::ParseFile($phase7Path, [ref]$tokens, [ref]$errors)
+        Assert-Equal $errors.Count 0 'Phase 7 driver cannot be parsed'
+        $actual = @($ast.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath } | Sort-Object)
+        $expected = @('ExpectedCommit', 'EvidencePath', 'ExpectedOrigin', 'VaultRoot', 'Gate') | Sort-Object
+        Assert-Equal ($actual -join ',') ($expected -join ',') 'Phase 7 driver parameter contract changed'
+
+        # Every string literal in the file is checked, so an authorizing value cannot be
+        # hidden in a variable assignment, a hashtable, or a parameter default.
+        $literals = @($ast.FindAll({
+            param($node)
+            $node -is [Management.Automation.Language.StringConstantExpressionAst]
+        }, $true) | ForEach-Object { $_.Value })
+        Assert-True ($literals.Count -gt 0) 'Phase 7 driver has no parseable string literals'
+        Assert-Equal @($literals | Where-Object { $_ -ceq 'CREATE' }).Count 0 `
+            'Phase 7 driver contains the exact installer authorization word as a literal'
+        Assert-Equal @($literals | Where-Object { $_ -ceq 'CLAUDE' }).Count 0 `
+            'Phase 7 driver contains the exact launcher Claude consent word as a literal'
+
+        # The relay path must be a real prompt, and the negative path must stay wrong.
+        Assert-True ($source.Contains("Read-Host '  Type the exact confirmation to send to the installer'")) `
+            'Phase 7 driver does not ask the operator to authorize the plan'
+        Assert-True ($source.Contains("-WrongConfirmation 'create'")) `
+            'Phase 7 negative scenarios no longer send a refused confirmation'
+        Assert-True ($source.Contains('$WrongConfirmation')) 'Phase 7 driver lost its negative-confirmation parameter'
+
+        # Evidence must stay outside the checkout and must be redacted before it is written.
+        Assert-True ($source.Contains('EvidencePath must be outside the reviewed checkout')) `
+            'Phase 7 driver can write raw evidence into the repository'
+        foreach ($placeholder in @('<USERPROFILE>', '<HOST>', '<USER>')) {
+            Assert-True ($source.Contains($placeholder)) ('Phase 7 redaction placeholder is missing: ' + $placeholder)
+        }
+        Assert-True ($source.Contains('function Protect-Evidence')) 'Phase 7 evidence redaction is missing'
+
+        # A skipped or inconclusive step must not read as an acceptance pass.
+        Assert-True ($source.Contains("if (`$failed.Count -gt 0) {") -and $source.Contains('exit 1')) `
+            'Phase 7 driver does not fail on a failed step'
+        Assert-True ($source.Contains("if (`$unresolved.Count -gt 0) {") -and $source.Contains('exit 2')) `
+            'Phase 7 driver reports an incomplete run as a pass'
+
+        # The manual steps are the reason this driver cannot mark Phase 7 complete on its own.
+        foreach ($manual in @('C.open-as-vault', 'C.launcher-opens-dashboard', 'D.claude-installed')) {
+            Assert-True ($source.Contains($manual)) ('Phase 7 manual observation disappeared: ' + $manual)
+        }
+        Assert-True ($source.Contains('ACCEPTANCE.md')) 'Phase 7 driver is undocumented'
+        $acceptanceText = [IO.File]::ReadAllText((Join-Path $repoRoot 'ACCEPTANCE.md'), [Text.Encoding]::UTF8)
+        Assert-True ($acceptanceText.Contains('Invoke-Phase7.ps1')) 'ACCEPTANCE.md does not document the Phase 7 driver'
     }
 
     Test-Case 'GitHub Actions least-privilege policy' {
