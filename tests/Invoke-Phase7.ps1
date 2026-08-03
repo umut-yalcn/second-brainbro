@@ -135,9 +135,11 @@ function Confirm-Observation {
     Write-Host ('==== MANUAL STEP ' + $Id + ' ====') -ForegroundColor Yellow
     foreach ($line in $Instruction) { Write-Host ('  ' + $line) }
     Write-Host ('  Expected result: ' + $Expected) -ForegroundColor Yellow
+    # Bounded: with a closed or redirected stdin, Read-Host returns an empty string forever,
+    # and an unbounded retry loop spins until the run is killed. An unanswerable prompt means
+    # no valid observation can be collected, so the run stops instead.
+    $attempts = 0
     while ($true) {
-        # Read-Host fails in a non-interactive host, so an unattended run stops here instead
-        # of recording an observation nobody made.
         $answer = Read-Host 'Type YES if observed as expected, NO if not, or SKIP'
         if ($answer -ceq 'YES') {
             $note = Read-Host 'Optional short note (press Enter to skip)'
@@ -155,13 +157,35 @@ function Confirm-Observation {
             Add-SkippedStep -Id $Id -GateId $GateId -Reason $note -Kind 'manual'
             return
         }
+        $attempts++
+        if ($attempts -ge 5) {
+            throw ('No valid answer for ' + $Id + ' after ' + $attempts + ' attempts. Run the driver ' +
+                'from an interactive console; a redirected or closed stdin cannot answer an observation.')
+        }
         Write-Host 'Answer exactly YES, NO, or SKIP.' -ForegroundColor Red
     }
 }
 
+function ConvertTo-NativeArgument {
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Value)
+    if ($Value.Contains('"')) { throw 'A native argument containing a double quote is not supported.' }
+    if ($Value.Length -gt 0 -and $Value -notmatch '\s') { return $Value }
+    # A trailing backslash would otherwise escape the closing quote.
+    return '"' + [regex]::Replace($Value, '(\\+)$', '$1$1') + '"'
+}
+
 function Invoke-Child {
+    [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)][string]$Command,
+        # -File is used wherever an exact exit code matters. powershell.exe -Command and
+        # -EncodedCommand collapse a script's `exit 2` into 1, which would erase the
+        # verifier's distinction between a failed gate and an unreached one.
+        [Parameter(Mandatory = $true, ParameterSetName = 'File')][string]$ScriptPath,
+        [Parameter(ParameterSetName = 'File')][string[]]$ScriptArguments = @(),
+        # -EncodedCommand is kept for the installer, whose -OptionalArea array cannot be
+        # expressed through -File. setup.ps1 only ever exits 0 or throws, so the collapse
+        # does not lose information there.
+        [Parameter(Mandatory = $true, ParameterSetName = 'Command')][string]$Command,
         [object[]]$Triggers = @(),
         # Read-Host writes its prompt to the console, not to a redirected stdout, so a prompt
         # cannot be detected by matching text. Instead the child is treated as waiting for
@@ -174,10 +198,15 @@ function Invoke-Child {
         [switch]$Echo
     )
 
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Command))
+    $arguments = if ($PSCmdlet.ParameterSetName -eq 'File') {
+        '-NoProfile -File ' + ((@($ScriptPath) + $ScriptArguments |
+            ForEach-Object { ConvertTo-NativeArgument $_ }) -join ' ')
+    } else {
+        '-NoProfile -EncodedCommand ' + [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Command))
+    }
     $startInfo = New-Object Diagnostics.ProcessStartInfo
     $startInfo.FileName = $script:HostExecutable
-    $startInfo.Arguments = '-NoProfile -EncodedCommand ' + $encoded
+    $startInfo.Arguments = $arguments
     $startInfo.WorkingDirectory = $repoRoot
     $startInfo.UseShellExecute = $false
     $startInfo.RedirectStandardOutput = $true
@@ -197,7 +226,11 @@ function Invoke-Child {
     $timedOut = $false
     $hasInputAction = $PSBoundParameters.ContainsKey('InputAction') -and $null -ne $InputAction
     $armed = $hasInputAction -and [string]::IsNullOrEmpty($InputArmText)
-    $inputSent = $false
+    # Fires at most once per child. Every path that reaches a prompt reaches exactly one:
+    # a real installation is only ever run after Gate B has installed the prerequisites, so
+    # -InstallPrerequisites is never combined with an answering action. Re-firing would
+    # silently consume the operator's answer to a later step and desynchronize the whole run.
+    $inputActionFired = $false
     $lastOutput = [DateTime]::UtcNow
 
     # Read incrementally rather than with ReadToEnd, because work has to happen while the
@@ -213,7 +246,6 @@ function Invoke-Child {
             [void]$collected.Append($chunk)
             if ($Echo) { Write-Host -NoNewline $chunk }
             $lastOutput = [DateTime]::UtcNow
-            $inputSent = $false
             $text = $collected.ToString()
             foreach ($trigger in $Triggers) {
                 if ($trigger.Fired -or -not $text.Contains([string]$trigger.Text)) { continue }
@@ -223,9 +255,9 @@ function Invoke-Child {
             if ($hasInputAction -and -not $armed -and $text.Contains($InputArmText)) { $armed = $true }
             continue
         }
-        if ($armed -and -not $inputSent -and -not $process.HasExited -and
+        if ($armed -and -not $inputActionFired -and -not $process.HasExited -and
             ([DateTime]::UtcNow - $lastOutput).TotalMilliseconds -gt $QuiescenceMilliseconds) {
-            $inputSent = $true
+            $inputActionFired = $true
             & $InputAction $writer $collected.ToString()
             # The operator may take a while to answer, so the overall budget restarts here.
             $lastOutput = [DateTime]::UtcNow
@@ -329,21 +361,29 @@ function Invoke-Verifier {
         [ValidateSet('Disabled', 'Enabled')][string]$Hooks = 'Disabled',
         [switch]$RequireClaude
     )
-    $command = '& ' + (ConvertTo-PsLiteral $acceptancePath) +
-        ' -Mode ' + $Mode +
-        ' -VaultPath ' + (ConvertTo-PsLiteral $TargetPath) +
-        ' -ExpectedCommit ' + (ConvertTo-PsLiteral $ExpectedCommit) +
-        ' -ExpectedOrigin ' + (ConvertTo-PsLiteral $ExpectedOrigin) +
-        ' -Hooks ' + $Hooks
-    if ($RequireClaude) { $command += ' -RequireClaude' }
-    $command += ' -Json'
-    $result = Invoke-Child -Command $command -TimeoutSeconds 600
+    $arguments = @(
+        '-Mode', $Mode,
+        '-VaultPath', $TargetPath,
+        '-ExpectedCommit', $ExpectedCommit,
+        '-ExpectedOrigin', $ExpectedOrigin,
+        '-Hooks', $Hooks
+    )
+    if ($RequireClaude) { $arguments += '-RequireClaude' }
+    $arguments += '-Json'
+    $result = Invoke-Child -ScriptPath $acceptancePath -ScriptArguments $arguments -TimeoutSeconds 600
     $start = $result.Output.IndexOf('{')
     $end = $result.Output.LastIndexOf('}')
     if ($start -lt 0 -or $end -le $start) {
         throw ('Verifier produced no JSON report (exit ' + $result.ExitCode + '): ' + $result.Output)
     }
     $report = $result.Output.Substring($start, $end - $start + 1) | ConvertFrom-Json
+    # The exit code and the JSON report are two independent channels for the same verdict.
+    # If they disagree, one of them is wrong and neither may be used as evidence.
+    $expectedExit = if ($report.Failed -gt 0) { 1 } elseif ($report.Pending -gt 0) { 2 } else { 0 }
+    if ($result.ExitCode -ne $expectedExit) {
+        throw ('Verifier exit code ' + $result.ExitCode + ' contradicts its own report (failed ' +
+            $report.Failed + ', pending ' + $report.Pending + ', expected exit ' + $expectedExit + ').')
+    }
     return [pscustomobject]@{
         ExitCode = $result.ExitCode
         Report = $report
@@ -483,7 +523,7 @@ try {
         } | Out-Null
 
         Invoke-Step -Id 'A.test-suite' -GateId 'A' -Body {
-            $result = Invoke-Child -Command ('& ' + (ConvertTo-PsLiteral $testsPath)) -Echo -TimeoutSeconds 1800
+            $result = Invoke-Child -ScriptPath $testsPath -Echo -TimeoutSeconds 1800
             $summary = @([regex]::Matches($result.Output, '(?m)^(Passed|Failed):.*$') | ForEach-Object { $_.Value.Trim() }) -join ' '
             $script:Facts['AutomatedSuite'] = ('exit ' + $result.ExitCode + '; ' + $summary)
             if ($result.ExitCode -ne 0) { throw ('Test suite failed: ' + $summary) }
@@ -837,7 +877,7 @@ try {
             Invoke-Step -Id 'E.launcher-dry-run-no-process' -GateId 'E' -Body {
                 $launcher = Join-Path $script:VaultDisabled 'Open-SecondBrain.ps1'
                 $before = Get-WatchedProcessIds
-                $result = Invoke-Child -Command ('& ' + (ConvertTo-PsLiteral $launcher) + ' -DryRun') -TimeoutSeconds 300
+                $result = Invoke-Child -ScriptPath $launcher -ScriptArguments @('-DryRun') -TimeoutSeconds 300
                 Start-Sleep -Milliseconds 500
                 $after = Get-WatchedProcessIds
                 $started = @($after | Where-Object { $before -notcontains $_ })
