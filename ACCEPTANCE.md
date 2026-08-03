@@ -50,6 +50,28 @@ zero. Exit code `1` reports a failed gate and `2` reports an incomplete run.
 Reviewers working from a fork or review mirror must pass `-ExpectedOrigin '<owner>/<repository>'`
 so the origin gate matches their exact remote. Record the value used in the evidence.
 
+## Optional driver
+
+`tests\Invoke-Phase7.ps1` runs the mechanical parts of the gates below in order and writes a
+redacted evidence pair outside the checkout. It refuses an elevated shell and an `-EvidencePath`
+inside the repository.
+
+```powershell
+.\tests\Invoke-Phase7.ps1 `
+  -ExpectedCommit '<exact-40-character-commit>' `
+  -EvidencePath 'D:\acceptance-evidence'
+```
+
+The driver does not replace the operator. It stops at every step that needs a person: the Obsidian
+**Open folder as vault** registration, the Claude Code installation and authentication, the launcher
+and hook observations, and each installation's authorization. It prints the installer's plan and
+forwards the confirmation you type; it never supplies that word itself, and the only confirmations it
+generates are the deliberately wrong ones the Gate E negative scenarios require. Exit code `0` means
+every driven step passed, `1` means a step failed, and `2` means a step was skipped or inconclusive.
+
+Running the driver is optional and it does not decide anything. The completion record at the end of
+this document is still what a reviewer signs off.
+
 ## Gate A: fresh host and reviewed source
 
 - Record the Windows edition, build, architecture, VM/snapshot identity, and installation date.
