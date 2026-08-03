@@ -14,7 +14,10 @@ param(
 
     [string]$VaultRoot = [Environment]::GetFolderPath('MyDocuments'),
 
-    [ValidateSet('A', 'B', 'C', 'D', 'E')]
+    # Accepts both an array and a single comma-joined value, because powershell.exe -File
+    # passes -Gate A,B as one string and a ValidateSet would reject it with a confusing
+    # message in the middle of an acceptance run.
+    [ValidatePattern('(?i)^[A-E](\s*,\s*[A-E])*$')]
     [string[]]$Gate = @('A', 'B', 'C', 'D', 'E')
 )
 
@@ -29,6 +32,10 @@ $ErrorActionPreference = 'Stop'
 # prompt forwards the exact text you type, so the filesystem plan is still authorized by a
 # person who read it. The only automated confirmations are deliberately wrong values used by
 # the Gate E negative scenarios, where refusal is the property under test.
+
+$Gate = @($Gate | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim().ToUpperInvariant() } |
+    Where-Object { -not [string]::IsNullOrEmpty($_) } | Select-Object -Unique)
+if ($Gate.Count -eq 0) { throw 'At least one gate must be selected.' }
 
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $setupPath = Join-Path $repoRoot 'setup.ps1'
@@ -450,10 +457,13 @@ try {
             $build = [string]$key.CurrentBuildNumber
             if ($key.PSObject.Properties.Name -contains 'UBR') { $build += '.' + [string]$key.UBR }
             $installed = ([DateTimeOffset]::FromUnixTimeSeconds([int64]$key.InstallDate)).UtcDateTime.ToString('yyyy-MM-dd')
-            $record = [string]$key.ProductName + ' ' + [string]$key.EditionID + ' ' + [string]$key.DisplayVersion +
+            # ProductName is deliberately not used: it still reads "Windows 10" on Windows 11,
+            # which would put a plainly wrong edition line into signed acceptance evidence.
+            # The build number is what actually establishes the release.
+            $record = 'Windows 11 ' + [string]$key.EditionID + ' ' + [string]$key.DisplayVersion +
                 ' build ' + $build + ' ' + [string]$env:PROCESSOR_ARCHITECTURE + '; installed ' + $installed
             if ([int]$key.CurrentBuildNumber -lt 22000 -or [string]$key.InstallationType -ne 'Client') {
-                throw ('Not a Windows 11 client host: ' + $record)
+                throw ('Not a Windows 11 client host: build ' + $build + ' type ' + [string]$key.InstallationType)
             }
             $script:Facts['Windows'] = $record
             $script:Facts['Account'] = 'standard, non-elevated'
@@ -480,14 +490,21 @@ try {
             return $script:Facts['AutomatedSuite']
         } | Out-Null
 
-        Invoke-Step -Id 'A.preinstall-baseline' -GateId 'A' -Body {
-            # On a genuinely fresh host this is expected to report missing prerequisites. It
-            # is recorded as the first-run baseline, and Gate B requires a clean rerun.
-            $verifier = Invoke-Verifier -Mode 'PreInstall' -TargetPath $targets.Disabled
-            Add-Step -Id 'A.preinstall-baseline.detail' -GateId 'A' -Status 'RECORDED' `
-                -Detail ($verifier.Summary + '; non-passing: ' + (($verifier.NonPassing -join ' | ')))
-            return $verifier.Summary
-        } | Out-Null
+        # On a genuinely fresh host this is expected to report missing prerequisites, so it is
+        # RECORDED rather than PASS. Reporting a run whose own summary says "failed 1" as a
+        # passed step would both mislead the reviewer and inflate the pass count; Gate B is
+        # where the pre-install gates actually have to come out clean.
+        try {
+            $baseline = Invoke-Verifier -Mode 'PreInstall' -TargetPath $targets.Disabled
+            $baselineDetail = $baseline.Summary
+            if ($baseline.NonPassing.Count -gt 0) {
+                $baselineDetail += '; non-passing: ' + ($baseline.NonPassing -join ' | ')
+            }
+            Add-Step -Id 'A.preinstall-baseline' -GateId 'A' -Status 'RECORDED' -Detail $baselineDetail
+        } catch {
+            # Being unable to run the verifier at all is a defect, not a baseline observation.
+            Add-Step -Id 'A.preinstall-baseline' -GateId 'A' -Status 'FAIL' -Detail $_.Exception.Message
+        }
     }
 
     # ---------------------------------------------------------------- Gate B

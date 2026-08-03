@@ -905,6 +905,18 @@ try {
             Assert-True ($source.Contains($placeholder)) ('Phase 7 redaction placeholder is missing: ' + $placeholder)
         }
         Assert-True ($source.Contains('function Protect-Evidence')) 'Phase 7 evidence redaction is missing'
+        Assert-True ($source.Contains('(?<![A-Za-z0-9])')) `
+            'Phase 7 redaction is unbounded and will corrupt evidence that contains the user name'
+
+        # ProductName still reads "Windows 10" on Windows 11, so using it would put a plainly
+        # wrong edition line into the evidence a reviewer signs.
+        Assert-True (-not ($source -match '\$key\.ProductName')) `
+            'Phase 7 host record uses the registry ProductName value'
+
+        # The first-run baseline is expected to report missing prerequisites, so it must not
+        # be counted as a passed step; Gate B is where the pre-install gates must come out clean.
+        Assert-True ($source.Contains("-Id 'A.preinstall-baseline' -GateId 'A' -Status 'RECORDED'")) `
+            'Phase 7 reports the pre-install baseline as a passed step'
 
         # A skipped or inconclusive step must not read as an acceptance pass.
         Assert-True ($source.Contains("if (`$failed.Count -gt 0) {") -and $source.Contains('exit 1')) `
