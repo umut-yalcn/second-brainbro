@@ -918,6 +918,24 @@ try {
         Assert-True ($source.Contains("-Id 'A.preinstall-baseline' -GateId 'A' -Status 'RECORDED'")) `
             'Phase 7 reports the pre-install baseline as a passed step'
 
+        # powershell.exe -Command and -EncodedCommand collapse a script's `exit 2` into 1,
+        # which erases the verifier's distinction between a failed gate and an unreached one.
+        # The verifier and the launcher must therefore be invoked through -File.
+        Assert-True ($source.Contains('-ScriptPath $acceptancePath')) `
+            'Phase 7 no longer invokes the verifier through -File and will misread a pending run'
+        Assert-True ($source.Contains('$expectedExit = if ($report.Failed -gt 0) { 1 } elseif ($report.Pending -gt 0) { 2 } else { 0 }')) `
+            'Phase 7 does not cross-check the verifier exit code against its own report'
+
+        # A prompt answered twice would consume the operator's answer to a later step.
+        Assert-True ($source.Contains('$inputActionFired = $true')) 'Phase 7 input action is not one-shot'
+        Assert-True (-not ($source -match '\$inputActionFired\s*=\s*\$false\s*\r?\n\s*\$text')) `
+            'Phase 7 input action is rearmed by further child output'
+
+        # Read-Host returns an empty string forever on a closed stdin; an unbounded retry
+        # loop would spin until the run is killed.
+        Assert-True ($source.Contains('after ' + "' + `$attempts + '" + ' attempts')) `
+            'Phase 7 observation prompt retries are unbounded'
+
         # A skipped or inconclusive step must not read as an acceptance pass.
         Assert-True ($source.Contains("if (`$failed.Count -gt 0) {") -and $source.Contains('exit 1')) `
             'Phase 7 driver does not fail on a failed step'
