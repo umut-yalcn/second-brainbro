@@ -818,11 +818,35 @@ try {
         }
 
         # Optional areas are absent from the template by design, so the tree cannot list
-        # them; the README must still name each one the installer can create.
-        $setupText = [IO.File]::ReadAllText($setupPath, [Text.Encoding]::UTF8)
-        foreach ($area in @('200-Goals', '400-Vault')) {
-            Assert-True ($setupText.Contains($area)) ('Optional area disappeared from the installer: ' + $area)
-            Assert-True ($readme.Contains($area)) ('README does not document optional area: ' + $area)
+        # them; the README must still name each one the installer can create. The expected
+        # set is read out of the installer rather than hardcoded here: the previous fixed
+        # pair silently blessed a README that omitted 700-Body and 800-Mind entirely.
+        $optionalErrors = $null
+        $optionalTokens = $null
+        $optionalAst = [Management.Automation.Language.Parser]::ParseFile($setupPath, [ref]$optionalTokens, [ref]$optionalErrors)
+        Assert-Equal $optionalErrors.Count 0 'setup.ps1 cannot be parsed for the optional area map'
+        $mapFunction = $optionalAst.FindAll({
+            param($node)
+            $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-OptionalFolderMap'
+        }, $true) | Select-Object -First 1
+        Assert-True ($null -ne $mapFunction) 'Optional folder map function is missing from the installer'
+        Invoke-Expression $mapFunction.Extent.Text
+        $optionalFolders = Get-OptionalFolderMap
+        Assert-True ($optionalFolders.Count -gt 0) 'Installer declares no optional areas'
+
+        $validateSet = @($optionalAst.ParamBlock.Parameters |
+            Where-Object { $_.Name.VariablePath.UserPath -eq 'OptionalArea' } |
+            ForEach-Object { $_.Attributes } |
+            Where-Object { $_.TypeName.Name -eq 'ValidateSet' } |
+            ForEach-Object { $_.PositionalArguments.Value })
+        Assert-Equal (($validateSet | Sort-Object) -join ',') ((@($optionalFolders.Keys) | Sort-Object) -join ',') `
+            'Accepted -OptionalArea values and the installer folder map disagree'
+
+        foreach ($area in $optionalFolders.Keys) {
+            # Matched on the ASCII part so an emoji variation selector cannot cause a
+            # false failure while still pinning the exact numbered folder name.
+            $slug = $optionalFolders[$area] -replace '^[^A-Za-z0-9]+', ''
+            Assert-True ($readme.Contains($slug)) ('README does not document optional area: ' + $slug)
         }
     }
 
