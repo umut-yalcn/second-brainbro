@@ -84,7 +84,9 @@ failure it removes only its validated staging directory and never rolls back unr
 └── .claude/                  # default permissions, opt-in hooks, manifest, and local state
 ```
 
-Optional `⚔️ 200-Goals/` and `🔐 400-Vault/` folders are created only when `-OptionalArea` requests them.
+Four optional folders are created only when `-OptionalArea` requests them: `⚔️ 200-Goals/`,
+`🔐 400-Vault/`, `💪 700-Body/`, and `🧘 800-Mind/`. Each one adds its own index note and
+Dashboard link.
 
 - **Named companion** — user-selected name and Turkish-first interaction style.
 - **Local Markdown memory** — `Core.md`, `Last-Session.md`, `Threads.md`, and `Journal.md` remain
@@ -163,16 +165,38 @@ community plugins are outside the supported public-source-preview configuration.
 Claude Code command hooks run with the Windows user's permissions. Review the hook code and active
 settings with `/hooks` before use.
 
-## Project status
+## Project status and scope
 
-- Phases 0–1: threat model and critical security controls — complete
-- Phase 2: transactional Windows installer — implemented and covered by Windows CI
-- Phase 3: session-safe hook engine — implemented and covered by Windows CI
-- Phase 4: complete Obsidian navigation and fail-closed local launcher — implemented and covered by Windows CI
-- Phase 5: automated Windows tests and least-privilege CI — implemented
-- Phase 6: Windows architecture, security, recovery, provenance, and documentation contract — implemented
-- Phase 7: clean-machine Windows 11 acceptance — protocol implemented; fresh-environment evidence pending
-- Phase 8: signed public release and immutable verification material
+This is a personal tool, shared with a small group of readers. It is not a product, it is not sold,
+and no distributed release is planned. The source is public so that anyone who runs it can read
+exactly what it does first.
+
+Built and covered by Windows CI:
+
+- Phases 0–1: threat model and critical security controls
+- Phase 2: transactional Windows installer
+- Phase 3: session-safe hook engine
+- Phase 4: complete Obsidian navigation and fail-closed local launcher
+- Phase 5: automated Windows tests and least-privilege CI
+- Phase 6: Windows architecture, security, recovery, provenance, and documentation contract
+
+Out of scope at this size:
+
+- Phase 7 clean-machine acceptance — the protocol and its driver are implemented and usable
+  ([ACCEPTANCE.md](ACCEPTANCE.md)), but fresh-environment evidence exists to reassure third parties
+  installing an unfamiliar release, which is not what this repository is for. It has never been run,
+  and the repository does not claim otherwise anywhere.
+- Phase 8 signed release and immutable verification material — same reason.
+
+Known gaps that matter to anyone who does run it:
+
+- **No updater.** The installer creates a new vault; it never updates, merges into, or repairs an
+  existing one. Adopting a newer commit in an existing vault is currently a manual operation.
+- **No uninstaller.** Removing a vault means deleting its folder.
+- **The prerequisite installation path has never been executed.** `-InstallPrerequisites` calls WinGet
+  for pinned Node.js and Obsidian versions; every environment used so far already had both, so that
+  branch is verified by reading it, not by running it. Install the prerequisites yourself if you want
+  to stay on proven ground.
 
 ## License and provenance
 

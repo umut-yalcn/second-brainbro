@@ -34,10 +34,11 @@ should be reported to this repository rather than assumed to be upstream defects
 
 ## License
 
-The imported project is MIT licensed. The retained [LICENSE](LICENSE) applies to this derived work and
-preserves the original copyright notice. Because the public repository uses a clean root, public commit
-history is not a complete authorship record; this document and the upstream repository provide the
-required provenance context.
+The imported project is MIT licensed. The retained [LICENSE](LICENSE) applies to this derived work. It
+preserves the upstream copyright notice as MIT requires, and adds a second notice for the Windows port
+and hardening work listed above, so the file does not attribute that work to the upstream author.
+Because the public repository uses a clean root, public commit history is not a complete authorship
+record; this document and the upstream repository provide the required provenance context.
 
 ## Verification limits
 
