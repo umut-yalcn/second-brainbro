@@ -1,6 +1,6 @@
 # Troubleshooting and safe recovery
 
-This guide is for the supported Windows 11 private-preview deployment. Do not bypass a fail-closed
+This guide is for the supported Windows 11 public-source-preview deployment. Do not bypass a fail-closed
 check merely to complete installation. Preserve unknown lock or staging paths until their ownership is
 understood.
 

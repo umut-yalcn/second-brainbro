@@ -352,6 +352,49 @@ try {
             if ($text -match '\{\{[^}]*\}\}') { $leftovers += $file.FullName }
         }
         Assert-Equal $leftovers.Count 0 'Personalization placeholders remain'
+
+        # The companion persona is Turkish-first, so a Turkish name has to survive both
+        # validators. The PowerShell one runs first and is therefore the effective gate.
+        $setupErrors = $null
+        $setupTokens = $null
+        $inputAst = [Management.Automation.Language.Parser]::ParseFile($setupPath, [ref]$setupTokens, [ref]$setupErrors)
+        Assert-Equal $setupErrors.Count 0 'setup.ps1 cannot be parsed for the name policy'
+        $nameFunction = $inputAst.FindAll({
+            param($node)
+            $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+                $node.Name -eq 'Assert-PersonalizationInputs'
+        }, $true) | Select-Object -First 1
+        Assert-True ($null -ne $nameFunction) 'Personalization input policy function is missing'
+        Invoke-Expression $nameFunction.Extent.Text
+
+        # C-cedilla, G-breve, dotted-I, O-diaeresis, S-cedilla, U-diaeresis and lowercase.
+        $turkishCodePoints = @(0x00C7, 0x011E, 0x0130, 0x00D6, 0x015E, 0x00DC,
+            0x00E7, 0x011F, 0x0131, 0x00F6, 0x015F, 0x00FC)
+        foreach ($codePoint in $turkishCodePoints) {
+            $turkishName = 'Ad' + [char]$codePoint + 'test'
+            $accepted = $true
+            try {
+                Assert-PersonalizationInputs -SystemName 'TestOS' -PersonName $turkishName `
+                    -Biography 'Automated local vault' -CompanionName 'Atlas' -CreatedDate '2026-08-01'
+            } catch { $accepted = $false }
+            Assert-True $accepted ('Turkish letter rejected by the installer: U+{0:X4}' -f $codePoint)
+
+            # Node validates the same value again; the two allowlists must not disagree.
+            $nodeCheck = Invoke-NodeCapture -Arguments @(
+                $personalizerPath, '--vault', $vault, '--os-name', 'TestOS', '--user-name', $turkishName,
+                '--user-bio', 'Automated local vault', '--companion', 'Atlas', '--today', '2026-08-01'
+            )
+            Assert-Equal $nodeCheck.ExitCode 0 ('Turkish letter rejected by personalize.mjs: U+{0:X4}' -f $codePoint)
+        }
+
+        foreach ($rejected in @('bad<name>', ('x' * 65), '', 'a/b', 'a')) {
+            $refused = $false
+            try {
+                Assert-PersonalizationInputs -SystemName 'TestOS' -PersonName $rejected `
+                    -Biography 'Automated local vault' -CompanionName 'Atlas' -CreatedDate '2026-08-01'
+            } catch { $refused = $true }
+            Assert-True $refused ('Unsafe name was accepted: ' + $rejected)
+        }
     }
 
     Test-Case 'Launcher allowlist and fail-closed handler selection' {
@@ -658,6 +701,17 @@ try {
         # Matched without a leading separator so a repository-root settings.local.json is
         # caught too; the previous '*/settings.local.json' form only saw nested copies.
         Assert-Equal @($tracked | Where-Object { $_ -like '*settings.local.json' }).Count 0 'settings.local.json is tracked'
+        # Windows PowerShell 5.1 decodes a BOM-less script with the ANSI code page, so a
+        # non-ASCII literal in a .ps1 file means one thing on 5.1 and another on 7. That
+        # silently corrupted the Turkish character class in the installer's name policy and
+        # rejected every Turkish name on 5.1 while CI's PowerShell 7 row stayed green.
+        # Scripts build non-ASCII values from code points instead; this pins that rule.
+        foreach ($script in @($tracked | Where-Object { $_ -like '*.ps1' })) {
+            $scriptBytes = [IO.File]::ReadAllBytes((Join-Path $repoRoot $script))
+            $offending = @($scriptBytes | Where-Object { $_ -gt 127 })
+            Assert-Equal $offending.Count 0 ('PowerShell script contains a non-ASCII literal: ' + $script)
+        }
+
         $strictUtf8 = New-Object Text.UTF8Encoding($false, $true)
         $secretPattern = '(?i)(sk-ant-[A-Za-z0-9_-]{16,}|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)'
         $textExtensions = @('.ps1', '.mjs', '.json', '.md', '.yml', '.yaml', '.gitignore')
@@ -765,7 +819,7 @@ try {
             'Claude Code optional Obsidian-only boundary is not documented consistently'
 
         $allDocs = ($docText.Values -join "`n")
-        foreach ($stale in @('Node.js 18', 'Node.js 20', 'redirected installer confirmation', 'UmutOS', 'C:\Users\Umut', 'private hardening preview', 'upstream history retained')) {
+        foreach ($stale in @('Node.js 18', 'Node.js 20', 'redirected installer confirmation', 'UmutOS', 'C:\Users\Umut', 'private hardening preview', 'upstream history retained', 'private-preview')) {
             Assert-True (-not $allDocs.Contains($stale)) ('Stale or personal documentation text found: ' + $stale)
         }
         Assert-True (-not ($allDocs -match '(?is)(Invoke-WebRequest|\birm\b|\bcurl\b).*?\|\s*(iex\b|Invoke-Expression\b|powershell\b|pwsh\b|sh\b|bash\b)')) 'Mutable download-and-execute instruction found'
