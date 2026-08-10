@@ -188,7 +188,16 @@ function Assert-PersonalizationInputs {
         [Parameter(Mandatory = $true)][string]$CreatedDate
     )
 
-    $namePattern = "^[A-Za-zÇĞİÖŞÜçğıöşü0-9 .'_-]{1,64}$"
+    # Built from code points, never written as literals: this file is BOM-less UTF-8 and
+    # Windows PowerShell 5.1 decodes such a file with the ANSI code page. Written literally,
+    # the Turkish letters below were corrupted on 5.1 and every Turkish name was rejected,
+    # while PowerShell 7 accepted the same input. The set must stay identical to NAME_RE in
+    # personalize.mjs, which validates the same values again on the Node side.
+    $turkishLetters = -join (@(
+        0x00C7, 0x011E, 0x0130, 0x00D6, 0x015E, 0x00DC,
+        0x00E7, 0x011F, 0x0131, 0x00F6, 0x015F, 0x00FC
+    ) | ForEach-Object { [char]$_ })
+    $namePattern = '^[A-Za-z' + $turkishLetters + '0-9 .''_-]{1,64}$'
     foreach ($field in @(
         [pscustomobject]@{ Name = 'OsName'; Value = $SystemName },
         [pscustomobject]@{ Name = 'UserName'; Value = $PersonName },

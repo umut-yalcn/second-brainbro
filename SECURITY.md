@@ -2,14 +2,14 @@
 
 ## Release status
 
-second-brainbro is currently a public source preview (alpha), not a release. No signed public release
-is supported yet.
-The only reviewed deployment target is the Windows 11 configuration in
+second-brainbro is a public source preview (alpha), not a release. It is a personal tool shared with a
+small group of readers, and no signed distributed release is planned; see the scope section in
+[README.md](README.md). The only reviewed deployment target is the Windows 11 configuration in
 [THREAT_MODEL.md](THREAT_MODEL.md). Mutable `main`, unreviewed forks, development branches, and copied
 setup commands are not release artifacts.
 
-When signed releases begin, this file will list supported immutable tags and their verification
-material. Until then, reports should reference an exact commit SHA and use synthetic reproduction data.
+Because there are no published release tags, reports should reference an exact commit SHA and use
+synthetic reproduction data.
 
 ## Reporting a vulnerability
 
