@@ -14,6 +14,17 @@ Klasör düzeni, hafıza modeli ve süreklilik motoru aynıdır. Eklenen şey Wi
 katmanıdır: işlemsel kurucu, varsayılan kısıtlayıcı izinler, hook bütünlük kontrolü ve fail-closed
 launcher.
 
+### Nasıl görünüyor
+
+Kurulan vault Obsidian'da — klasör düzeni, Dashboard ve alanlar arası bağlantılar:
+
+![Obsidian'da kurulu vault ve Dashboard notu](docs/img/obsidian-dashboard.jpg)
+
+Aynı vault'un içinden başlatılan Claude Code oturumu. Companion kendi adıyla açılıyor ve açık
+thread'i sen söylemeden biliyor — bu bilgi oturum başında hook tarafından enjekte edildi:
+
+![Vault icinde calisan Claude Code oturumu](docs/img/claude-companion.jpg)
+
 ### Çalıştığı ortam
 
 | Bileşen | Desteklenen |

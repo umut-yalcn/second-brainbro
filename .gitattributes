@@ -8,3 +8,8 @@
 *.md text eol=lf
 *.gitignore text eol=lf
 LICENSE text eol=lf
+
+# Screenshots are binary; never apply text or eol conversion.
+*.jpg binary
+*.jpeg binary
+*.png binary

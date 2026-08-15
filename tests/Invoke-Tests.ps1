@@ -712,6 +712,16 @@ try {
             Assert-Equal $offending.Count 0 ('PowerShell script contains a non-ASCII literal: ' + $script)
         }
 
+        # Screenshots are the only binary content this repository tracks. They are excluded
+        # from the text checks below, but only where they are expected to live, so a binary
+        # committed anywhere else still fails instead of silently skipping the scan.
+        $binaryExtensions = @('.jpg', '.jpeg', '.png', '.gif', '.webp', '.ico')
+        $binaries = @($tracked | Where-Object { $binaryExtensions -contains [IO.Path]::GetExtension($_).ToLowerInvariant() })
+        foreach ($binary in $binaries) {
+            Assert-True ($binary -like 'docs/img/*') ('Binary file outside docs/img: ' + $binary)
+        }
+        $tracked = @($tracked | Where-Object { $binaries -notcontains $_ })
+
         $strictUtf8 = New-Object Text.UTF8Encoding($false, $true)
         $secretPattern = '(?i)(sk-ant-[A-Za-z0-9_-]{16,}|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)'
         $textExtensions = @('.ps1', '.mjs', '.json', '.md', '.yml', '.yaml', '.gitignore')
