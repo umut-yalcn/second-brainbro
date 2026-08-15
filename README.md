@@ -14,10 +14,25 @@ Klasör düzeni, hafıza modeli ve süreklilik motoru aynıdır. Eklenen şey Wi
 katmanıdır: işlemsel kurucu, varsayılan kısıtlayıcı izinler, hook bütünlük kontrolü ve fail-closed
 launcher.
 
-### Kurulum
+### Çalıştığı ortam
 
-Windows 11, yerel NTFS disk, standart kullanıcı hesabı. Node.js 22/24 LTS ve imzalı Obsidian gerekir;
-Claude Code yalnızca yapay zekâ entegrasyonu için.
+| Bileşen | Desteklenen |
+|---|---|
+| İşletim sistemi | **Windows 11** (build 22000+), yerel **NTFS** sabit disk, standart kullanıcı hesabı |
+| Kabuk | Windows PowerShell **5.1** veya PowerShell **7** (ikisi de CI'da test edilir) |
+| Node.js | **22.23.1+** veya **24.18.0+** — kurulum ve hook'lar için gerekir |
+| Obsidian | **1.12.7+**, Dynalist Inc imzalı (Authenticode doğrulanır) |
+| Claude Code | **2.1.211+** — yalnızca yapay zekâ entegrasyonu için, Obsidian tek başına kullanılacaksa gerekmez |
+
+**Windows 10 notu:** kurucu ve launcher işletim sistemi sürümünü *kontrol etmez*, dolayısıyla Windows 10
+üzerinde de çalışabilir. Ancak yalnızca Windows 11'de denendi ve desteklenen yapılandırma budur.
+Sürüm kontrolünü yapan tek bileşen kabul doğrulayıcısıdır (`tests\Invoke-Acceptance.ps1`).
+
+**Çalışmayanlar:** macOS ve Linux (upstream macOS içindir, bu port Windows'a özgüdür), WSL, OneDrive
+içindeki klasörler, ağ paylaşımları, WebDAV, NTFS olmayan diskler, junction/symlink üzerinden erişilen
+yollar. Bunların hepsi kasıtlı olarak reddedilir.
+
+### Kurulum
 
 ```powershell
 git clone https://github.com/umutyalcin-pen/second-brainbro.git
