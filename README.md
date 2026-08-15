@@ -24,9 +24,16 @@ launcher.
 | Obsidian | **1.12.7+**, Dynalist Inc imzalı (Authenticode doğrulanır) |
 | Claude Code | **2.1.211+** — yalnızca yapay zekâ entegrasyonu için, Obsidian tek başına kullanılacaksa gerekmez |
 
-**Windows 10 notu:** kurucu ve launcher işletim sistemi sürümünü *kontrol etmez*, dolayısıyla Windows 10
-üzerinde de çalışabilir. Ancak yalnızca Windows 11'de denendi ve desteklenen yapılandırma budur.
-Sürüm kontrolünü yapan tek bileşen kabul doğrulayıcısıdır (`tests\Invoke-Acceptance.ps1`).
+**Windows 10:** çalışması beklenir ama denenmedi. Kurucu ve launcher işletim sistemi sürümünü
+*kontrol etmez* — sürüm kontrolü yapan tek bileşen kabul doğrulayıcısıdır
+(`tests\Invoke-Acceptance.ps1`). Kullanılan her şey standart Windows API'sidir: NTFS ve sabit disk
+kontrolü, ACL, `HKEY_CLASSES_ROOT` protokol kaydı, reparse-point tespiti. Node.js, Obsidian ve
+Claude Code da Windows 10'u destekler. Denediysen sonucu bildir, bu not güncellensin.
+
+**Windows 8.1 ve Windows 7:** çalışmaz — engel bu projenin kodu değil, bağımlılıklar. Node.js 22/24
+ve Obsidian'ın kullandığı Electron sürümü bu işletim sistemlerini artık desteklemiyor; WinGet de
+Windows 7'de yok. Node.js olmadan kurucu kişiselleştirme adımını tamamlayamaz ve hook motoru hiç
+çalışmaz; Obsidian olmadan launcher zaten reddeder.
 
 **Çalışmayanlar:** macOS ve Linux (upstream macOS içindir, bu port Windows'a özgüdür), WSL, OneDrive
 içindeki klasörler, ağ paylaşımları, WebDAV, NTFS olmayan diskler, junction/symlink üzerinden erişilen
