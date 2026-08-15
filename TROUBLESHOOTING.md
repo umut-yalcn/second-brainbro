@@ -119,5 +119,5 @@ PowerShell version, and Node version. Do not weaken a security assertion to make
 pass.
 
 For initial installation instructions see [SETUP.md](SETUP.md); for disclosure-sensitive problems see
-[SECURITY.md](SECURITY.md). Clean-machine acceptance failures must remain failed until the required
-gate in [ACCEPTANCE.md](ACCEPTANCE.md) is repeated successfully on the same reviewed commit.
+[SECURITY.md](SECURITY.md). To check an installed vault without changing it, run the read-only
+verifier described in [SETUP.md](SETUP.md).

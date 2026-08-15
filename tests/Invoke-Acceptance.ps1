@@ -331,10 +331,10 @@ if ($Mode -eq 'PreInstall') {
         return 'validated without starting Obsidian or Claude'
     } -PendingIf {
         param([string]$Message)
-        # ACCEPTANCE.md Gate C initializes the Obsidian vault marker after the first
-        # installed-vault run, so an absent .obsidian means this gate has not been
-        # reached yet. Both the launcher's own reason and the missing marker must agree;
-        # any other launcher failure stays FAIL.
+        # Obsidian creates the vault marker the first time the folder is opened as a
+        # vault, so an absent .obsidian means that step has not happened yet rather than
+        # that the launcher is broken. Both the launcher's own reason and the missing
+        # marker must agree; any other launcher failure stays FAIL.
         $Message -match 'not initialized this folder as a vault' -and
             -not (Test-Path -LiteralPath (Join-Path $target '.obsidian') -PathType Container)
     }

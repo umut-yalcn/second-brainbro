@@ -186,6 +186,21 @@ version/signature test doubles, a `Read-Host` test double, explicit BOM-less UTF
 Obsidian or Claude, never writes to an existing vault, and removes its test directory in a `finally`
 block. See [ARCHITECTURE.md](ARCHITECTURE.md) for component boundaries.
 
-Before claiming clean-machine support, complete every required gate in
-[ACCEPTANCE.md](ACCEPTANCE.md) on a fresh Windows 11 VM or physical test machine. CI and a reused
-developer workstation are not substitutes for that evidence.
+## Verifying an installed vault
+
+`tests\Invoke-Acceptance.ps1` is a read-only health check. It confirms the host, the reviewed
+checkout, the required files, the protected ACL, the restrictive local settings, and a launcher
+dry-run that starts no process. It installs nothing and changes nothing.
+
+```powershell
+.	ests\Invoke-Acceptance.ps1 `
+  -Mode InstalledVault `
+  -VaultPath "$([Environment]::GetFolderPath('MyDocuments'))\SecondBrain" `
+  -ExpectedCommit (git rev-parse HEAD) `
+  -Hooks Enabled
+```
+
+Exit code `0` means every gate passed, `1` means a gate failed, and `2` means a gate could not be
+reached yet - most often because Obsidian has not opened the folder as a vault. This check runs on the
+machine you use; it is not evidence that the first-run experience works on a clean Windows install,
+and this repository makes no such claim.
