@@ -1,5 +1,49 @@
 # 🧠 second-brainbro — AI-assisted second brain for Windows 11
 
+## Türkçe
+
+Çoğu yapay zekâ sohbeti seni her seferinde unutur. Bu unutmaz.
+
+Notların kendi diskinde düz Markdown dosyaları olarak durur; Claude Code onları okur, düzenler ve
+oturumlar arasında hatırlar. Obsidian editör olarak kullanılır — dosyalar senin, istediğin an başka
+bir programla açabilirsin. Hafıza `🔮 850-Companion/` altındaki dört dosyada tutulur: kim olduğun,
+geçen oturumda ne yaptığınız, açık konu başlıkların ve günlük.
+
+Bu, [avenoxai/avenoxbeyin](https://github.com/avenoxai/avenoxbeyin) projesinin **Windows 11 portudur**.
+Klasör düzeni, hafıza modeli ve süreklilik motoru aynıdır. Eklenen şey Windows tarafı ve bir güvenlik
+katmanıdır: işlemsel kurucu, varsayılan kısıtlayıcı izinler, hook bütünlük kontrolü ve fail-closed
+launcher.
+
+### Kurulum
+
+Windows 11, yerel NTFS disk, standart kullanıcı hesabı. Node.js 22/24 LTS ve imzalı Obsidian gerekir;
+Claude Code yalnızca yapay zekâ entegrasyonu için.
+
+```powershell
+git clone https://github.com/umutyalcin-pen/second-brainbro.git
+cd second-brainbro
+.\setup.ps1 `
+  -VaultPath "$([Environment]::GetFolderPath('MyDocuments'))\SecondBrain" `
+  -OsName 'BenimOS' -UserName 'Adin' `
+  -UserBio 'Kendini birkac cumleyle anlat' `
+  -Companion 'Rehber' -Hooks Enabled
+```
+
+Planı okuyup `CREATE` yaz. Sonra Obsidian'da **Open folder as vault** ile klasörü aç, ardından
+vault içindeki `Open-SecondBrain.ps1 -Claude` ile başlat.
+
+### Neyi vaat etmez
+
+Bu kişisel bir araçtır, ürün değildir; imzalı bir sürümü yoktur ve dağıtılmış bir yayın planlanmıyor.
+Notların diskinde durur ama sistem **çevrimdışı değildir** — Claude'a giden içerik yapılandırdığın
+servise ulaşır. Vault'a parola, API anahtarı veya kurtarma kodu koyma. Kurucu bir güncelleyici
+değildir: yeni bir sürüme geçmek elle taşıma gerektirir. Ayrıntılar için aşağıdaki İngilizce bölüme,
+[PRIVACY.md](PRIVACY.md) ve [THREAT_MODEL.md](THREAT_MODEL.md) dosyalarına bak.
+
+---
+
+## English
+
 An experimental Windows 11 port of
 [avenoxai/avenoxbeyin](https://github.com/avenoxai/avenoxbeyin), built around Obsidian,
 Claude Code, and local Markdown memory files. The imported upstream baseline is commit `3961c0c`.
