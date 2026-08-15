@@ -1,4 +1,4 @@
-# 🧠 second-brainbro — AI-assisted second brain for Windows 11
+#  second brain bro — AI-assisted second brain for Windows 11
 
 ## Türkçe
 
