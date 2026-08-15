@@ -103,7 +103,6 @@ or injected by hooks may be processed by the configured Claude service. Read
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — fail-closed diagnostics and safe recovery
 - [SECURITY.md](SECURITY.md) — private vulnerability reporting and security support policy
 - [PROVENANCE.md](PROVENANCE.md) — upstream baseline, transformations, license, and release limits
-- [ACCEPTANCE.md](ACCEPTANCE.md) — Phase 7 fresh Windows host gates and evidence protocol
 - [CONTRIBUTING.md](CONTRIBUTING.md) — synthetic-data issue and pull-request requirements
 
 ## Current installation policy
@@ -238,7 +237,7 @@ community plugins are outside the supported public-source-preview configuration.
 | Personalization | Fixed file allowlist, canonical containment, link rejection, preflight validation | Transaction protects a new install; it is not an updater for existing vaults |
 | Launcher | Vault-relative fixed entry point, local-path and reparse checks, encoded Obsidian URI, encoded literal Claude command, dry-run, explicit Claude consent | Same-user modification and unreviewed source remain outside its protection |
 | Automated verification | Windows PowerShell 5.1/Node 22 and PowerShell 7/Node 24 exercise installation, hooks, launcher selection, navigation, encoding, documentation links/contracts, and secret patterns | GitHub-hosted runners and pinned toolchain artifacts remain external dependencies |
-| Clean-machine acceptance | Read-only verifier and evidence protocol cover reviewed source, standard-user host, dry-run, installed vault, launcher, and hooks | Fresh VM/physical-machine evidence is still pending |
+| Installed-vault verification | Read-only verifier covers reviewed source, standard-user host, dry-run, installed vault, launcher, and hooks | It checks the machine it runs on; first-run behaviour on a clean Windows install is unverified |
 | Memory injection | Size cap, narrow sections, untrusted-data delimiters | Prompt-injection resistance is not absolute |
 | Concurrent sessions | SHA-256 session keys, exclusive prompt markers, closing sentinel, atomic reflection claims, bounded cleanup | Same-user tampering and abrupt process/storage failure remain out of scope |
 | Secrets | Filesystem-root-anchored sensitive Read/Edit denies plus complete Bash/PowerShell tool denies; no API-key feature | Settings can be changed or bypassed; `.gitignore` is not encryption |
@@ -264,11 +263,10 @@ Built and covered by Windows CI:
 
 Out of scope at this size:
 
-- Phase 7 clean-machine acceptance — the protocol and its driver are implemented and usable
-  ([ACCEPTANCE.md](ACCEPTANCE.md)), but fresh-environment evidence exists to reassure third parties
-  installing an unfamiliar release, which is not what this repository is for. It has never been run,
-  and the repository does not claim otherwise anywhere.
-- Phase 8 signed release and immutable verification material — same reason.
+- Phase 7 clean-machine acceptance and Phase 8 signed release. Fresh-environment evidence and
+  signed verification material exist to reassure third parties installing an unfamiliar release,
+  which is not what this repository is for. `tests\Invoke-Acceptance.ps1` remains as a read-only
+  health check for an installed vault; see [SETUP.md](SETUP.md).
 
 Known gaps that matter to anyone who does run it:
 

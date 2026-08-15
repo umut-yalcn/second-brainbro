@@ -14,8 +14,7 @@ remain authoritative in [THREAT_MODEL.md](THREAT_MODEL.md).
 | `Open-SecondBrain.ps1` | Validate the installed vault and local executables, open the Dashboard in Obsidian, and optionally start Claude after explicit consent | Install software, change Obsidian settings, or enable hooks |
 | `hooks.mjs` | Validate Claude hook input and manifest integrity, inject bounded memory, and maintain session-isolated operational state | Provide an encryption boundary or protect against the same Windows user |
 | `tests/Invoke-Tests.ps1` | Exercise installer, personalization, launcher, hook, navigation, encoding, documentation, and CI invariants on temporary copies | Launch Obsidian or Claude, or write to an existing vault |
-| `tests/Invoke-Acceptance.ps1` | Read and verify a reviewed checkout, supported host, dry-run, or installed synthetic vault during Phase 7 | Install packages, create a vault, launch applications, or claim that a reused host is clean |
-| `tests/Invoke-Phase7.ps1` | Drive the mechanical acceptance gates in order and write redacted evidence outside the checkout | Type an installation authorization, answer a manual observation, or decide that Phase 7 passed |
+| `tests/Invoke-Acceptance.ps1` | Read and verify a reviewed checkout, supported host, dry-run, or an installed vault | Install packages, create a vault, launch applications, or change anything it inspects |
 
 ## Installation transaction
 

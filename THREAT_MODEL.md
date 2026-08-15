@@ -121,8 +121,8 @@ first-party Windows executable as its standard distribution.
   Markdown link must resolve inside the checkout.
 - Setup documentation must cover every public installer parameter and preserve the supported Windows,
   storage, and Node.js policy enforced by code.
-- A Phase 7 completion claim requires reviewed evidence from a fresh Windows 11 environment; CI or a
-  reused developer workstation alone is insufficient.
+- No clean-machine claim may be made from CI or a reused developer workstation; the read-only
+  verifier checks the machine it runs on and nothing more.
 - A public release requires clean automated tests, secret-history scanning, and a reviewed immutable tag.
 
 ## Out of scope
