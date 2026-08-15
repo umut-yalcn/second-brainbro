@@ -25,6 +25,11 @@ thread'i sen söylemeden biliyor — bu bilgi oturum başında hook tarafından 
 
 ![Vault icinde calisan Claude Code oturumu](docs/img/claude-companion.jpg)
 
+Ayrı bir günde açılan başka bir oturum. Vault'un durumunu hâlâ biliyor — hafıza dosyalarda durduğu
+için süreklilik oturumdan oturuma taşınıyor:
+
+![Windows Terminal icinde ikinci bir Claude Code oturumu](docs/img/claude-session.jpg)
+
 ### Çalıştığı ortam
 
 | Bileşen | Desteklenen |
