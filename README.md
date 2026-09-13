@@ -1,5 +1,7 @@
 #  second brain bro — AI-assisted second brain for Windows 11
 
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 ## Türkçe
 
 Çoğu yapay zekâ sohbeti seni her seferinde unutur. Bu unutmaz.
